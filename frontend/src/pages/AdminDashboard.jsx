@@ -45,6 +45,7 @@ import {
   Alert,
   FormControl,
   InputLabel,
+  LinearProgress,
 } from "@mui/material";
 
 import {
@@ -598,6 +599,80 @@ function ResumePreviewDialog({ open, title, onClose, url, blobUrl, loading }) {
     </Dialog>
   );
 }
+
+function PortfolioLoadingDialog({
+  open,
+  percent,
+  text,
+  onCancel,
+}) {
+  return (
+    <Dialog
+      open={open}
+      fullWidth
+      maxWidth="xs"
+      disableEscapeKeyDown
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+        },
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 950 }}>
+        Opening Portfolio
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 1.5 }}>
+        <Stack spacing={2}>
+          <Typography sx={{ fontWeight: 900, fontSize: 28, textAlign: "center" }}>
+            {percent}%
+          </Typography>
+
+          <LinearProgress
+            variant="determinate"
+            value={percent}
+            sx={{
+              height: 10,
+              borderRadius: 999,
+              backgroundColor: "rgba(122,63,145,0.12)",
+              "& .MuiLinearProgress-bar": {
+                borderRadius: 999,
+                background: `linear-gradient(135deg, ${BRAND_PRIMARY}, ${BRAND_DARK})`,
+              },
+            }}
+          />
+
+          <Typography
+            variant="body2"
+            sx={{ textAlign: "center", opacity: 0.8, minHeight: 22 }}
+          >
+            {text}
+          </Typography>
+        </Stack>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2 }}>
+        <Button
+          onClick={onCancel}
+          variant="outlined"
+          size="small"
+          startIcon={<MdClose />}
+          sx={{
+            borderRadius: 999,
+            fontWeight: 950,
+            borderColor: "rgba(122,63,145,0.55)",
+            color: BRAND_PRIMARY,
+          }}
+        >
+          Cancel
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+
+
 export default function AdminDashboard(props) {
   const navigate = useNavigate();
   const { username } = useParams();
@@ -722,7 +797,83 @@ const [editValue, setEditValue] = useState("");
   const [resumePreviewBlobUrl, setResumePreviewBlobUrl] = useState("");
   const [resumePreviewLoading, setResumePreviewLoading] = useState(false);
 
+
+  const [portfolioLoadingOpen, setPortfolioLoadingOpen] = useState(false);
+  const [portfolioLoadingPercent, setPortfolioLoadingPercent] = useState(0);
+  const [portfolioLoadingText, setPortfolioLoadingText] = useState("");
+  const portfolioLoadingTimerRef = React.useRef(null);
+  const portfolioLoadingCancelledRef = React.useRef(false);
+
   const handleDrawerToggle = () => setMobileOpen((p) => !p);
+
+    const clearPortfolioLoadingTimer = () => {
+    if (portfolioLoadingTimerRef.current) {
+      clearTimeout(portfolioLoadingTimerRef.current);
+      portfolioLoadingTimerRef.current = null;
+    }
+  };
+
+  const resetPortfolioLoading = () => {
+    clearPortfolioLoadingTimer();
+    portfolioLoadingCancelledRef.current = false;
+    setPortfolioLoadingOpen(false);
+    setPortfolioLoadingPercent(0);
+    setPortfolioLoadingText("");
+  };
+
+  const cancelPortfolioLoading = () => {
+    portfolioLoadingCancelledRef.current = true;
+    resetPortfolioLoading();
+    setOk("Portfolio opening cancelled.");
+  };
+
+  const startPortfolioLoading = () => {
+    if (!username || portfolioLoadingOpen) return;
+
+    portfolioLoadingCancelledRef.current = false;
+    setPortfolioLoadingOpen(true);
+    setPortfolioLoadingPercent(0);
+    setPortfolioLoadingText("Preparing portfolio viewer...");
+
+    const steps = [
+      { percent: 8, text: "Initializing viewer session...", delay: 450 },
+      { percent: 18, text: "Extracting data from database...", delay: 650 },
+      { percent: 31, text: "Loading profile details...", delay: 700 },
+      { percent: 44, text: "Fixing colors...", delay: 600 },
+      { percent: 57, text: "Fixing layouts...", delay: 700 },
+      { percent: 68, text: "Fixing styles...", delay: 650 },
+      { percent: 79, text: "Mapping links...", delay: 700 },
+      { percent: 90, text: "Finalizing portfolio view...", delay: 750 },
+      { percent: 100, text: "Opening homepage...", delay: 500 },
+    ];
+
+    let index = 0;
+
+    const runStep = () => {
+      if (portfolioLoadingCancelledRef.current) return;
+
+      const step = steps[index];
+      if (!step) {
+        resetPortfolioLoading();
+        window.open(`/${username}`, "_blank");
+        return;
+      }
+
+      setPortfolioLoadingPercent(step.percent);
+      setPortfolioLoadingText(step.text);
+
+      index += 1;
+      portfolioLoadingTimerRef.current = setTimeout(runStep, step.delay);
+    };
+
+    portfolioLoadingTimerRef.current = setTimeout(runStep, 250);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      clearPortfolioLoadingTimer();
+    };
+  }, []);
 
   const fetchAllAdmin = async () => {
     try {
@@ -1440,16 +1591,16 @@ const saveEditSkill = (i) => {
           </Typography>
 
           {/* ✅ NEW: Eye icon to open Viewer page */}
-          <Tooltip title="View Portfolio">
-            <IconButton
-  onClick={() => {
-    if (!username) return;
-    window.open(`/${username}`, "_blank");
-  }}
-  color="inherit"
->
-  <MdVisibility />
-</IconButton>
+                   <Tooltip title="View Portfolio">
+            <span>
+              <IconButton
+                onClick={startPortfolioLoading}
+                color="inherit"
+                disabled={portfolioLoadingOpen}
+              >
+                <MdVisibility />
+              </IconButton>
+            </span>
           </Tooltip>
 
           <Tooltip title={theme.palette.mode === "dark" ? "Switch to Light" : "Switch to Dark"}>
