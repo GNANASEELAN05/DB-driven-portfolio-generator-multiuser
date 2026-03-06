@@ -931,10 +931,7 @@ const [editValue, setEditValue] = useState("");
       portfolioLoadingTimerRef.current = setTimeout(runStep, perStepDelay);
     };
 
-      const openGeneratedPortfolio = () => {
-    if (!portfolioReady || !username) return;
-    window.open(`/${username}`, "_blank", "noopener,noreferrer");
-  };
+
 
     portfolioLoadingTimerRef.current = setTimeout(runStep, perStepDelay);
   };
