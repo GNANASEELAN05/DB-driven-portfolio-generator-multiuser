@@ -803,6 +803,7 @@ const [editValue, setEditValue] = useState("");
   const [portfolioLoadingText, setPortfolioLoadingText] = useState("");
   const portfolioLoadingTimerRef = React.useRef(null);
   const portfolioLoadingCancelledRef = React.useRef(false);
+  const portfolioViewerTabRef = React.useRef(null);
 
   const handleDrawerToggle = () => setMobileOpen((p) => !p);
 
@@ -823,7 +824,18 @@ const [editValue, setEditValue] = useState("");
 
   const cancelPortfolioLoading = () => {
     portfolioLoadingCancelledRef.current = true;
-    resetPortfolioLoading();
+    clearPortfolioLoadingTimer();
+
+    if (portfolioViewerTabRef.current && !portfolioViewerTabRef.current.closed) {
+      try {
+        portfolioViewerTabRef.current.close();
+      } catch {}
+    }
+
+    portfolioViewerTabRef.current = null;
+    setPortfolioLoadingOpen(false);
+    setPortfolioLoadingPercent(0);
+    setPortfolioLoadingText("");
     setOk("Portfolio opening cancelled.");
   };
 
@@ -835,12 +847,47 @@ const [editValue, setEditValue] = useState("");
     setPortfolioLoadingPercent(0);
     setPortfolioLoadingText("Preparing portfolio viewer...");
 
+    // Open tab immediately so browser won't block it later
+    const viewerTab = window.open("about:blank", "_blank", "noopener,noreferrer");
+
+    if (!viewerTab) {
+      setPortfolioLoadingOpen(false);
+      setPortfolioLoadingPercent(0);
+      setPortfolioLoadingText("");
+      setErr("Popup blocked. Please allow popups for this site and try again.");
+      return;
+    }
+
+    portfolioViewerTabRef.current = viewerTab;
+
+    try {
+      viewerTab.document.write(`
+        <html>
+          <head>
+            <title>Preparing Portfolio...</title>
+          </head>
+          <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#111;color:#fff;font-family:Arial,sans-serif;">
+            <div style="text-align:center;">
+              <div style="font-size:20px;font-weight:700;margin-bottom:10px;">Preparing Portfolio...</div>
+              <div style="font-size:14px;opacity:0.8;">The portfolio will open automatically after loading completes.</div>
+            </div>
+          </body>
+        </html>
+      `);
+      viewerTab.document.close();
+    } catch {}
+
+    // Bring user back to admin page immediately
+    try {
+      window.focus();
+    } catch {}
+
     const connection =
       navigator.connection ||
       navigator.mozConnection ||
       navigator.webkitConnection;
 
-    let totalDuration = 30000; // minimum 30 sec
+    let totalDuration = 30000;
 
     if (connection) {
       const effectiveType = connection.effectiveType || "";
@@ -883,17 +930,20 @@ const [editValue, setEditValue] = useState("");
       const step = steps[index];
 
       if (!step) {
-        const finalUrl = `/${username}`;
+        const finalUrl = `${window.location.origin}/${username}`;
+
+        if (portfolioViewerTabRef.current && !portfolioViewerTabRef.current.closed) {
+          try {
+            portfolioViewerTabRef.current.location.replace(finalUrl);
+          } catch {
+            try {
+              portfolioViewerTabRef.current.location.href = finalUrl;
+            } catch {}
+          }
+        }
+
+        portfolioViewerTabRef.current = null;
         resetPortfolioLoading();
-
-        const link = document.createElement("a");
-        link.href = finalUrl;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
         return;
       }
 
