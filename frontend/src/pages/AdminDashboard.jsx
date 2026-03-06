@@ -1502,9 +1502,10 @@ const saveEditSkill = (i) => {
           { id: "contact", label: "Contact / Links", icon: <MdLink /> },
           { id: "resume", label: "Resume", icon: <MdDescription /> },
         ].map((it) => (
-          <ListItemButton
+            <ListItemButton
             key={it.id}
             selected={active === it.id}
+            disabled={portfolioLoadingOpen}
             onClick={() => {
               setActive(it.id);
               setMobileOpen(false);
@@ -1524,11 +1525,12 @@ const saveEditSkill = (i) => {
       </List>
 
       <Box sx={{ mt: "auto", p: 1.2 }}>
-        <Button
+                <Button
           fullWidth
           variant="contained"
           color="error"
           startIcon={<MdLogout />}
+          disabled={portfolioLoadingOpen}
           sx={{ borderRadius: 999, fontWeight: 950 }}
           onClick={() => {
             localStorage.removeItem("token");
@@ -1545,6 +1547,18 @@ const saveEditSkill = (i) => {
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <CssBaseline />
 
+            {portfolioLoadingOpen ? (
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: (t) => t.zIndex.modal - 1,
+            background: "rgba(0,0,0,0.18)",
+            pointerEvents: "all",
+          }}
+        />
+      ) : null}
+
       <AppBar
         position="fixed"
         elevation={0}
@@ -1557,10 +1571,11 @@ const saveEditSkill = (i) => {
         }}
       >
         <Toolbar sx={{ gap: 1 }}>
-          <IconButton
+                    <IconButton
             color="inherit"
             edge="start"
             onClick={handleDrawerToggle}
+            disabled={portfolioLoadingOpen}
             sx={{ mr: 0.5, display: { md: "none" } }}
           >
             <MdMenu />
@@ -1604,13 +1619,13 @@ const saveEditSkill = (i) => {
           </Tooltip>
 
           <Tooltip title={theme.palette.mode === "dark" ? "Switch to Light" : "Switch to Dark"}>
-            <IconButton onClick={toggleTheme} color="inherit">
+                        <IconButton onClick={toggleTheme} color="inherit" disabled={portfolioLoadingOpen}>
               {theme.palette.mode === "dark" ? <MdLightMode /> : <MdDarkMode />}
             </IconButton>
           </Tooltip>
 
           <Tooltip title="Reload">
-            <IconButton onClick={fetchAllAdmin} color="inherit">
+                        <IconButton onClick={fetchAllAdmin} color="inherit" disabled={portfolioLoadingOpen}>
               <MdRefresh />
             </IconButton>
           </Tooltip>
@@ -2812,8 +2827,16 @@ const saveEditSkill = (i) => {
             onClose={() => setConfirmOpen(false)}
             onConfirm={confirmPayload.onConfirm || (() => setConfirmOpen(false))}
           />
+
+                    <PortfolioLoadingDialog
+            open={portfolioLoadingOpen}
+            percent={portfolioLoadingPercent}
+            text={portfolioLoadingText}
+            onCancel={cancelPortfolioLoading}
+          />
         </Container>
       </Box>
     </Box>
   );
+  
 }
