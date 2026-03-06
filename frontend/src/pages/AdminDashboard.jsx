@@ -970,13 +970,16 @@ const [editValue, setEditValue] = useState("");
     portfolioLoadingTimerRef.current = setTimeout(runStep, perStepDelay);
   };
 
-    const openGeneratedPortfolio = () => {
-    if (!portfolioReady || !username) return;
+const openGeneratedPortfolio = () => {
+  if (!portfolioReady || !username) return;
 
-    setOk("Portfolio opened successfully.");
-    resetPortfolioLoading();
-    navigate(`/${encodeURIComponent(username)}`);
-  };
+  const portfolioUrl = `${window.location.origin}/${encodeURIComponent(username)}`;
+
+  window.open(portfolioUrl, "_blank", "noopener,noreferrer");
+
+  setOk("Portfolio opened successfully.");
+  resetPortfolioLoading();
+};
 
   React.useEffect(() => {
     return () => {
