@@ -835,27 +835,97 @@ const [editValue, setEditValue] = useState("");
     setPortfolioLoadingPercent(0);
     setPortfolioLoadingText("Preparing portfolio viewer...");
 
+    // open tab immediately on user click so browser won't block it later
+    const viewerTab = window.open("", "_blank");
+
+    // fallback if popup blocked
+    if (viewerTab) {
+      try {
+        viewerTab.document.write(`
+          <html>
+            <head>
+              <title>Opening Portfolio...</title>
+            </head>
+            <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;background:#111;color:#fff;">
+              <div style="text-align:center;">
+                <div style="font-size:18px;font-weight:700;margin-bottom:10px;">Opening Portfolio...</div>
+                <div style="font-size:14px;opacity:0.75;">Please wait while your portfolio is being prepared.</div>
+              </div>
+            </body>
+          </html>
+        `);
+        viewerTab.document.close();
+      } catch {}
+    }
+
+    // estimate slower total duration based on connection when available
+    const connection =
+      navigator.connection ||
+      navigator.mozConnection ||
+      navigator.webkitConnection;
+
+    let totalDuration = 30000; // minimum 30 sec
+
+    if (connection) {
+      const effectiveType = connection.effectiveType || "";
+      const downlink = Number(connection.downlink || 0);
+
+      if (effectiveType === "slow-2g" || effectiveType === "2g") {
+        totalDuration = 50000;
+      } else if (effectiveType === "3g" || downlink < 2) {
+        totalDuration = 40000;
+      } else if (effectiveType === "4g" || downlink >= 5) {
+        totalDuration = 30000;
+      } else {
+        totalDuration = 35000;
+      }
+    }
+
     const steps = [
-      { percent: 8, text: "Initializing viewer session...", delay: 450 },
-      { percent: 18, text: "Extracting data from database...", delay: 650 },
-      { percent: 31, text: "Loading profile details...", delay: 700 },
-      { percent: 44, text: "Fixing colors...", delay: 600 },
-      { percent: 57, text: "Fixing layouts...", delay: 700 },
-      { percent: 68, text: "Fixing styles...", delay: 650 },
-      { percent: 79, text: "Mapping links...", delay: 700 },
-      { percent: 90, text: "Finalizing portfolio view...", delay: 750 },
-      { percent: 100, text: "Opening homepage...", delay: 500 },
+      { percent: 4, text: "Initializing viewer session..." },
+      { percent: 9, text: "Connecting to portfolio service..." },
+      { percent: 15, text: "Extracting data from database..." },
+      { percent: 22, text: "Reading profile information..." },
+      { percent: 30, text: "Loading project records..." },
+      { percent: 38, text: "Loading achievements..." },
+      { percent: 46, text: "Fixing colors..." },
+      { percent: 54, text: "Fixing layouts..." },
+      { percent: 62, text: "Fixing styles..." },
+      { percent: 70, text: "Mapping links..." },
+      { percent: 78, text: "Preparing resume section..." },
+      { percent: 86, text: "Finalizing portfolio view..." },
+      { percent: 93, text: "Applying last updates..." },
+      { percent: 100, text: "Opening homepage..." },
     ];
 
+    const perStepDelay = Math.floor(totalDuration / steps.length);
     let index = 0;
 
     const runStep = () => {
-      if (portfolioLoadingCancelledRef.current) return;
+      if (portfolioLoadingCancelledRef.current) {
+        if (viewerTab && !viewerTab.closed) {
+          try {
+            viewerTab.close();
+          } catch {}
+        }
+        return;
+      }
 
       const step = steps[index];
+
       if (!step) {
         resetPortfolioLoading();
-        window.open(`/${username}`, "_blank");
+
+        const finalUrl = `/${username}`;
+
+        if (viewerTab && !viewerTab.closed) {
+          try {
+            viewerTab.location.href = finalUrl;
+            return;
+          } catch {}
+        }
+
+        navigate(finalUrl);
         return;
       }
 
@@ -863,10 +933,10 @@ const [editValue, setEditValue] = useState("");
       setPortfolioLoadingText(step.text);
 
       index += 1;
-      portfolioLoadingTimerRef.current = setTimeout(runStep, step.delay);
+      portfolioLoadingTimerRef.current = setTimeout(runStep, perStepDelay);
     };
 
-    portfolioLoadingTimerRef.current = setTimeout(runStep, 250);
+    portfolioLoadingTimerRef.current = setTimeout(runStep, perStepDelay);
   };
 
   React.useEffect(() => {
