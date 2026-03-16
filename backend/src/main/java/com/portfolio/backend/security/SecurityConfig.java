@@ -46,23 +46,29 @@ public class SecurityConfig {
                 // auth
                 .requestMatchers("/api/auth/**").permitAll()
 
+                // ── PAYMENT (requires JWT, handled inside controller) ──
+                .requestMatchers("/api/payment/**").authenticated()
+
                 // PUBLIC VIEW
                 .requestMatchers(HttpMethod.GET, "/api/u/*/portfolio/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/u/*/projects/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/u/*/resume/**").permitAll()
 
+                // profile-image public GET (viewer)
+                .requestMatchers(HttpMethod.GET, "/api/profile-image/**").permitAll()
+
                 // ADMIN
-                .requestMatchers(HttpMethod.POST, "/api/u/*/projects/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT,  "/api/u/*/projects/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE,"/api/u/*/projects/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,   "/api/u/*/projects/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/u/*/projects/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/u/*/projects/**").hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.PUT,  "/api/u/*/portfolio/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/u/*/portfolio/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE,"/api/u/*/portfolio/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/u/*/portfolio/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,   "/api/u/*/portfolio/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/u/*/portfolio/**").hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.POST, "/api/u/*/resume/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE,"/api/u/*/resume/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT,  "/api/u/*/resume/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,   "/api/u/*/resume/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/u/*/resume/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/u/*/resume/**").hasRole("ADMIN")
 
                 .anyRequest().permitAll()
             )
@@ -71,7 +77,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 🌍 CORS FIXED FOR VERCEL + LOCAL
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
@@ -97,7 +102,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
-        return cfg.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
+        return config.getAuthenticationManager();
     }
 }

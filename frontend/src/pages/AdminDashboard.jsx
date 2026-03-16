@@ -1,7 +1,10 @@
 // src/pages/AdminDashboard.jsx
 import React, { useState } from "react";
 import TextareaAutosize from "@mui/material/TextareaAutosize";
+
 import { useNavigate, useParams } from "react-router-dom";
+import VersionPickerModal from "../components/VersionPickerModal";   // ← ADD
+import { fetchPremiumStatus } from "../api/payment"; 
 
 import {
   AppBar,
@@ -109,6 +112,7 @@ const drawerWidth = 280;
 
 const BRAND_PRIMARY = "#c680f2";
 const BRAND_DARK = "#7A3F91";
+
 
 const bumpContentVersion = () => {
   localStorage.setItem("content_version", String(Date.now()));
@@ -710,7 +714,10 @@ function PortfolioLoadingDialog({
 
 
 export default function AdminDashboard(props) {
-  const navigate = useNavigate();
+  const navigate = useNavigate();  // ← already exists, leave it
+const [versionPickerOpen, setVersionPickerOpen] = useState(false);   // ← ADD
+const [hasPremium1, setHasPremium1]             = useState(false);   // ← ADD
+const [hasPremium2, setHasPremium2]             = useState(false); 
   const { username } = useParams();
   // ⭐ get original username (with caps & spaces)
 const displayName =
@@ -1044,10 +1051,15 @@ setSkillTable(table);
     }
   };
 
-  React.useEffect(() => {
-    fetchAllAdmin();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+React.useEffect(() => {
+  fetchPremiumStatus().then((s) => {
+    setHasPremium1(s.hasPremium1);
+    setHasPremium2(s.hasPremium2);
+    const authUser = localStorage.getItem("auth_user") || "";
+    if (s.hasPremium1) localStorage.setItem(`premium1_${authUser}`, "true");
+    if (s.hasPremium2) localStorage.setItem(`premium2_${authUser}`, "true");
+  });
+}, []);
 
   const toggleTheme = () => {
     if (typeof props?.setDarkMode === "function") {
@@ -1721,21 +1733,19 @@ const saveEditSkill = (i) => {
 
           {/* ✅ NEW: Eye icon to open Viewer page */}
           <Button
-            onClick={startPortfolioLoading}
-            variant="contained"
-            size="small"
-            disabled={portfolioLoadingOpen}
-            sx={{
-              borderRadius: 999,
-              fontWeight: 950,
-              background: portfolioGenerated
-                ? "linear-gradient(135deg, rgba(160,160,160,0.95), rgba(120,120,120,0.95))"
-                : `linear-gradient(135deg, ${BRAND_PRIMARY}, ${BRAND_DARK})`,
-              textTransform: "none",
-            }}
+            onClick={() => setVersionPickerOpen(true)}
+              variant="contained"
+              size="small"
+              disabled={portfolioLoadingOpen}
+              sx={{
+                  borderRadius: 999,
+                  fontWeight: 950,
+                  background: `linear-gradient(135deg, ${BRAND_PRIMARY}, ${BRAND_DARK})`,
+                  textTransform: "none",
+                }}
           >
-            Generate Portfolio
-          </Button>
+              Generate Portfolio
+            </Button>
 
           {portfolioGenerated ? (
             <Tooltip title="View Portfolio">
@@ -3020,9 +3030,39 @@ const saveEditSkill = (i) => {
             onCancel={cancelPortfolioLoading}
             onOpenPortfolio={openGeneratedPortfolio}
           />
+
+          
         </Container>
-      </Box>
+
+        <VersionPickerModal
+          open={versionPickerOpen}
+          onClose={() => setVersionPickerOpen(false)}
+          hasPremium1={hasPremium1}
+          hasPremium2={hasPremium2}
+          username={username}
+          onPremiumUnlocked={(newStatus) => {
+            setHasPremium1(newStatus.hasPremium1);
+            setHasPremium2(newStatus.hasPremium2);
+            const authUser = localStorage.getItem("auth_user") || "";
+            if (newStatus.hasPremium1) localStorage.setItem(`premium1_${authUser}`, "true");
+            if (newStatus.hasPremium2) localStorage.setItem(`premium2_${authUser}`, "true");
+            if (newStatus.hasPremium1 && !hasPremium1) navigate(`/${username}/adminpanel/premium1`);
+            if (newStatus.hasPremium2 && !hasPremium2) navigate(`/${username}/adminpanel/premium2`);
+          }}
+          onGenerateFree={() => {
+            setVersionPickerOpen(false);
+            startPortfolioLoading();
+          }}
+          onGeneratePremium1={() => {
+            setVersionPickerOpen(false);
+            navigate(`/${username}/adminpanel/premium1`);
+          }}
+          onGeneratePremium2={() => {
+            setVersionPickerOpen(false);
+            navigate(`/${username}/adminpanel/premium2`);
+          }}
+        />
+      </Box>   {/* ← this is the closing tag that was already there */}
     </Box>
   );
-  
 }

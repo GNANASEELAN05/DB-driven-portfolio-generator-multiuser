@@ -1,9 +1,6 @@
 // src/api/portfolio.js
 import http from "./http";
 
-/* =========================================================
-   🔐 FORCE ADMIN TOKEN FOR ALL ADMIN CALLS
-========================================================= */
 const authHeader = () => ({
   headers: {
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -12,9 +9,7 @@ const authHeader = () => ({
 
 const tenant = (username) => `/u/${encodeURIComponent(username || "").trim().toLowerCase()}`;
 
-/* =========================
-   VIEWER (PUBLIC GETs)
-========================= */
+/* ========================= VIEWER (PUBLIC GETs) ========================= */
 export const getProfile = (username) =>
   http.get(`${tenant(username)}/portfolio/profile`);
 
@@ -39,9 +34,7 @@ export const getAchievements = (username) =>
 export const getLanguageExperience = (username) =>
   http.get(`${tenant(username)}/portfolio/languages`);
 
-/* =========================
-   ADMIN (Portfolio PUTs)
-========================= */
+/* ========================= ADMIN (Portfolio PUTs) ========================= */
 export const updateProfile = (username, payload) =>
   http.put(`${tenant(username)}/portfolio/profile`, payload, authHeader());
 
@@ -63,14 +56,15 @@ export const updateEducation = (username, payload) =>
 export const updateExperience = (username, payload) =>
   http.put(`${tenant(username)}/portfolio/experience`, payload, authHeader());
 
-/* =========================
-   ADMIN (Projects)
-========================= */
+/* ========================= ADMIN (Projects) ========================= */
 export const getAllProjectsAdmin = (username) =>
   http.get(`${tenant(username)}/projects`, authHeader());
 
 export const createProject = (username, payload) =>
   http.post(`${tenant(username)}/projects`, payload, authHeader());
+
+// ← alias so AdminDashboardPremium1.jsx can import addProject
+export const addProject = createProject;
 
 export const updateProject = (username, id, payload) =>
   http.put(`${tenant(username)}/projects/${id}`, payload, authHeader());
@@ -78,11 +72,7 @@ export const updateProject = (username, id, payload) =>
 export const deleteProject = (username, id) =>
   http.delete(`${tenant(username)}/projects/${id}`, authHeader());
 
-/* =========================
-   RESUME SECTION
-========================= */
-
-// upload resume
+/* ========================= RESUME SECTION ========================= */
 export const uploadResume = (username, file) => {
   const form = new FormData();
   form.append("file", file);
@@ -95,32 +85,25 @@ export const uploadResume = (username, file) => {
   });
 };
 
-// viewer download
 export const downloadResumeUrl = (username) =>
   `${http.defaults.baseURL}${tenant(username)}/resume/download`;
 
 export const viewResumeUrl = (username) =>
   `${http.defaults.baseURL}${tenant(username)}/resume/download`;
 
-// admin list
 export const listResumesAdmin = (username) =>
   http.get(`${tenant(username)}/resume/list`, authHeader());
 
-// preview by id
 export const viewResumeByIdUrl = (username, id) =>
   `${http.defaults.baseURL}${tenant(username)}/resume/${id}/view`;
 
-// set primary resume
 export const setPrimaryResume = (username, id) =>
   http.put(`${tenant(username)}/resume/${id}/primary`, {}, authHeader());
 
-// delete resume
 export const deleteResumeById = (username, id) =>
   http.delete(`${tenant(username)}/resume/${id}`, authHeader());
 
-/* =========================
-   AUTH
-========================= */
+/* ========================= AUTH ========================= */
 export const adminLogin = (username, password) =>
   http.post("/auth/login", { username, password });
 
