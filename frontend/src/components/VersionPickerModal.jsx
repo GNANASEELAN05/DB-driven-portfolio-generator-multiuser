@@ -3,6 +3,7 @@
 // Drop-in modal shown when "Generate Portfolio" is clicked.
 // Shows three plan cards: Free · Premium 1 (₹50) · Premium 2 (₹100)
 // Handles Razorpay payment inline and unlocks the version on success.
+// Includes ⚡ Skip (Test) button for dev/testing — bypasses Razorpay.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from "react";
@@ -13,38 +14,27 @@ import {
 import { MdClose, MdVisibility, MdLock, MdCheckCircle, MdStar } from "react-icons/md";
 import { startPremiumPayment } from "../api/payment";
 
-// ── PDF preview for the "eye" icon ──────────────────────────────────────────
-//
-//  HOW TO MAP YOUR PDF TO THE EYE ICON
-//  ------------------------------------
-//  Option A (easiest – hosted in your backend):
-//    Upload a PDF called "premium_preview.pdf" to your backend public static
-//    folder: backend/src/main/resources/static/premium_preview.pdf
-//    Then set:
-//      const PREMIUM1_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview.pdf`;
-//      const PREMIUM2_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview2.pdf`;
-//
-//  Option B (Vercel public folder):
-//    Put the PDF in frontend/public/premium_preview.pdf
-//    Then set:
-//      const PREMIUM1_PREVIEW_PDF = "/premium_preview.pdf";
-//
-//  Option C (Google Drive / external link):
-//    Just paste any public PDF URL below.
 // ─────────────────────────────────────────────────────────────────────────────
-
+// Backend base URL — update VITE_API_URL in your .env to override
+// ─────────────────────────────────────────────────────────────────────────────
 const BACKEND_BASE = (
-  import.meta.env.VITE_API_URL || "https://db-driven-portfolio-generator-multiuser.onrender.com/api"
-).replace(/\/api$/, "");
+  import.meta.env.VITE_API_URL ||
+  "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api"
+).replace(/\/api\/?$/, "");
 
-// ← CHANGE THESE TWO LINES to your actual PDF paths (see options above)
+const API_BASE = `${BACKEND_BASE}/api`;
+
+// ── PDF preview paths ────────────────────────────────────────────────────────
+// Put premium_preview1.pdf and premium_preview2.pdf in:
+//   backend/src/main/resources/static/
+// ─────────────────────────────────────────────────────────────────────────────
 const PREMIUM1_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview1.pdf`;
 const PREMIUM2_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview2.pdf`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BRAND = "#7a3f91";
-const GOLD  = "#f59e0b";
+const BRAND  = "#7a3f91";
+const GOLD   = "#f59e0b";
 const VIOLET = "#7c3aed";
 
 export default function VersionPickerModal({
@@ -53,16 +43,19 @@ export default function VersionPickerModal({
   hasPremium1,
   hasPremium2,
   username,
-  onPremiumUnlocked,    // (newStatus) => void  — called after successful payment
-  onGenerateFree,       // () => void           — called when "Generate Free" clicked
-  onGeneratePremium1,   // () => void           — called when "Generate Premium 1" clicked
-  onGeneratePremium2,   // () => void           — called when "Generate Premium 2" clicked
+  onPremiumUnlocked,   // (newStatus) => void  — called after successful payment OR skip
+  onGenerateFree,      // () => void
+  onGeneratePremium1,  // () => void
+  onGeneratePremium2,  // () => void
+  onSkip,              // (version: 1|2) => void  — called after skip-unlock succeeds
 }) {
-  const [paying, setPaying]     = useState(null); // 1 | 2 | null
-  const [payErr, setPayErr]     = useState("");
-  const [payOk, setPayOk]       = useState("");
-  const [pdfUrl, setPdfUrl]     = useState(null); // null = closed
+  const [paying,   setPaying]   = useState(null); // 1 | 2 | null
+  const [skipping, setSkipping] = useState(null); // 1 | 2 | null
+  const [payErr,   setPayErr]   = useState("");
+  const [payOk,    setPayOk]    = useState("");
+  const [pdfUrl,   setPdfUrl]   = useState(null); // null = closed
 
+  // ── Razorpay payment ───────────────────────────────────────────────────────
   const handlePay = (version) => {
     setPayErr("");
     setPayOk("");
@@ -84,6 +77,40 @@ export default function VersionPickerModal({
     });
   };
 
+  // ── Skip (test) — calls /api/payment/skip-unlock, no Razorpay ─────────────
+  const handleSkip = async (version) => {
+    setPayErr("");
+    setPayOk("");
+    setSkipping(version);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/payment/skip-unlock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ version }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      const newStatus = await res.json();
+      setPayOk(`✅ Test skip — Premium ${version} unlocked.`);
+      onPremiumUnlocked(newStatus);    // update hasPremium1/hasPremium2 in parent
+      if (onSkip) onSkip(version);     // navigate / generate in parent
+    } catch (e) {
+      setPayErr("Skip failed: " + e.message);
+    } finally {
+      setSkipping(null);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   const plans = [
     {
       key: "free",
@@ -102,7 +129,12 @@ export default function VersionPickerModal({
       price: "₹50",
       color: BRAND,
       version: 1,
-      features: ["Luxury card design", "Animated sections", "Holographic effects", "Priority layout"],
+      features: [
+        "Luxury card design",
+        "Animated sections",
+        "Holographic effects",
+        "Priority layout",
+      ],
       locked: !hasPremium1,
       paid: hasPremium1,
       onGenerate: onGeneratePremium1,
@@ -114,7 +146,12 @@ export default function VersionPickerModal({
       price: "₹100",
       color: VIOLET,
       version: 2,
-      features: ["All Premium 1 features", "3D animations", "Custom theme", "Coming soon…"],
+      features: [
+        "All Premium 1 features",
+        "3D animations",
+        "Custom theme",
+        "Coming soon…",
+      ],
       locked: !hasPremium2,
       paid: hasPremium2,
       onGenerate: onGeneratePremium2,
@@ -122,12 +159,16 @@ export default function VersionPickerModal({
     },
   ];
 
+  const busy = paying !== null || skipping !== null;
+
   return (
     <>
-      {/* ── PDF preview dialog ── */}
+      {/* ── PDF preview dialog ─────────────────────────────────────────────── */}
       <Dialog open={!!pdfUrl} onClose={() => setPdfUrl(null)} maxWidth="md" fullWidth>
         <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1 }}>
-          <IconButton onClick={() => setPdfUrl(null)}><MdClose /></IconButton>
+          <IconButton onClick={() => setPdfUrl(null)}>
+            <MdClose />
+          </IconButton>
         </Box>
         <DialogContent sx={{ p: 0, height: "80vh" }}>
           <iframe
@@ -138,7 +179,7 @@ export default function VersionPickerModal({
         </DialogContent>
       </Dialog>
 
-      {/* ── Version Picker ── */}
+      {/* ── Version Picker ─────────────────────────────────────────────────── */}
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <Box
           sx={{
@@ -153,12 +194,22 @@ export default function VersionPickerModal({
           <Typography variant="h6" sx={{ fontWeight: 900 }}>
             Choose Your Portfolio Version
           </Typography>
-          <IconButton onClick={onClose}><MdClose /></IconButton>
+          <IconButton onClick={onClose}>
+            <MdClose />
+          </IconButton>
         </Box>
 
         <DialogContent>
-          {payErr && <Alert severity="error" sx={{ mb: 2 }}>{payErr}</Alert>}
-          {payOk  && <Alert severity="success" sx={{ mb: 2 }}>{payOk}</Alert>}
+          {payErr && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {payErr}
+            </Alert>
+          )}
+          {payOk && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {payOk}
+            </Alert>
+          )}
 
           <Box
             sx={{
@@ -173,7 +224,9 @@ export default function VersionPickerModal({
                 key={plan.key}
                 sx={{
                   flex: 1,
-                  border: `2px solid ${plan.paid ? plan.color : "rgba(0,0,0,0.12)"}`,
+                  border: `2px solid ${
+                    plan.paid ? plan.color : "rgba(0,0,0,0.12)"
+                  }`,
                   borderRadius: 3,
                   p: 2.5,
                   display: "flex",
@@ -187,7 +240,7 @@ export default function VersionPickerModal({
                   "&:hover": { boxShadow: `0 4px 24px ${plan.color}30` },
                 }}
               >
-                {/* paid badge */}
+                {/* ── Unlocked badge ── */}
                 {plan.paid && plan.key !== "free" && (
                   <Chip
                     icon={<MdCheckCircle />}
@@ -205,12 +258,15 @@ export default function VersionPickerModal({
                   />
                 )}
 
-                {/* name + price */}
+                {/* ── Name + price ── */}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {plan.key !== "free" && (
                     <MdStar style={{ color: GOLD, fontSize: 20 }} />
                   )}
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900, color: plan.color }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 900, color: plan.color }}
+                  >
                     {plan.label}
                   </Typography>
                 </Box>
@@ -218,13 +274,17 @@ export default function VersionPickerModal({
                 <Typography variant="h4" sx={{ fontWeight: 900 }}>
                   {plan.price}
                   {plan.key !== "free" && (
-                    <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{ ml: 0.5 }}
+                    >
                       one-time
                     </Typography>
                   )}
                 </Typography>
 
-                {/* features */}
+                {/* ── Features ── */}
                 <Box sx={{ flex: 1 }}>
                   {plan.features.map((f) => (
                     <Typography key={f} variant="body2" sx={{ py: 0.25 }}>
@@ -233,7 +293,7 @@ export default function VersionPickerModal({
                   ))}
                 </Box>
 
-                {/* eye icon — preview PDF */}
+                {/* ── Eye icon — preview PDF ── */}
                 {plan.previewPdf && (
                   <Tooltip title="Preview layout PDF">
                     <IconButton
@@ -246,8 +306,9 @@ export default function VersionPickerModal({
                   </Tooltip>
                 )}
 
-                {/* action button */}
+                {/* ── Action buttons ── */}
                 {plan.paid ? (
+                  /* Already unlocked → Generate button */
                   <Button
                     variant="contained"
                     fullWidth
@@ -262,28 +323,67 @@ export default function VersionPickerModal({
                     Generate {plan.label}
                   </Button>
                 ) : (
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={paying !== null}
-                    startIcon={
-                      paying === plan.version ? (
-                        <CircularProgress size={14} />
-                      ) : (
-                        <MdLock />
-                      )
-                    }
-                    onClick={() => handlePay(plan.version)}
+                  /* Locked → Pay & Unlock  +  ⚡ Skip (Test) */
+                  <Box
                     sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 1,
                       mt: 1,
-                      borderRadius: 999,
-                      fontWeight: 800,
-                      borderColor: plan.color,
-                      color: plan.color,
                     }}
                   >
-                    {paying === plan.version ? "Processing…" : `Pay & Unlock`}
-                  </Button>
+                    {/* Pay & Unlock */}
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      disabled={busy}
+                      startIcon={
+                        paying === plan.version ? (
+                          <CircularProgress size={14} />
+                        ) : (
+                          <MdLock />
+                        )
+                      }
+                      onClick={() => handlePay(plan.version)}
+                      sx={{
+                        borderRadius: 999,
+                        fontWeight: 800,
+                        borderColor: plan.color,
+                        color: plan.color,
+                      }}
+                    >
+                      {paying === plan.version ? "Processing…" : "Pay & Unlock"}
+                    </Button>
+
+                    {/* ⚡ Skip (Test) */}
+                    <Button
+                      variant="text"
+                      fullWidth
+                      size="small"
+                      disabled={busy}
+                      startIcon={
+                        skipping === plan.version ? (
+                          <CircularProgress size={12} />
+                        ) : null
+                      }
+                      onClick={() => handleSkip(plan.version)}
+                      sx={{
+                        borderRadius: 999,
+                        fontWeight: 700,
+                        fontSize: "0.72rem",
+                        color: "text.secondary",
+                        border: "1px dashed",
+                        borderColor: "divider",
+                        "&:hover": {
+                          borderColor: plan.color,
+                          color: plan.color,
+                          background: `${plan.color}08`,
+                        },
+                      }}
+                    >
+                      {skipping === plan.version ? "Unlocking…" : "⚡ Skip (Test)"}
+                    </Button>
+                  </Box>
                 )}
               </Box>
             ))}

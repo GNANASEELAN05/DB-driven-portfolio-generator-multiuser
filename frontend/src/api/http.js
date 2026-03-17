@@ -2,13 +2,13 @@
 import axios from "axios";
 
 /*
-  Uses production backend on Vercel
-  Falls back to localhost for local dev
+  Uses production backend on Render.
+  Falls back to localhost for local dev.
 */
 
 const baseURL =
   import.meta.env.VITE_API_BASE_URL ||
-  "https://db-driven-portfolio-generator-multiuser.onrender.com/api";
+  "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api";
 
 // axios instance
 const http = axios.create({
@@ -38,21 +38,30 @@ http.interceptors.request.use(
 http.interceptors.response.use(
   (res) => res,
   (error) => {
-
-    // ❗ DO NOT redirect on login/register failure
     const requestURL = error?.config?.url || "";
+    const status     = error?.response?.status;
 
+    // ── Never redirect on login / register failures ──────────────────────
     const isAuthRequest =
-      requestURL.includes("/api/auth/login") ||
-      requestURL.includes("/api/auth/register");
+      requestURL.includes("/auth/login") ||
+      requestURL.includes("/auth/register");
 
-    if (error?.response?.status === 401 && !isAuthRequest) {
-      // only for token expired AFTER login
+    // ── Never redirect on payment endpoints (skip-unlock, status, verify) ─
+    const isPaymentRequest = requestURL.includes("/payment/");
 
+    // ── Only redirect when the user is actually on an admin page ─────────
+    // This prevents public viewer pages from being kicked to login when
+    // they hit a 401 on a public-ish endpoint.
+    const isAdminPage = window.location.pathname.includes("/adminpanel");
+
+    if (
+      status === 401 &&
+      !isAuthRequest &&
+      !isPaymentRequest &&
+      isAdminPage
+    ) {
       localStorage.removeItem("token");
       sessionStorage.clear();
-
-      // go to common login page
       window.location.href = "/adminpanel/login";
     }
 

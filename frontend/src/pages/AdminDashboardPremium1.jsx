@@ -1,249 +1,958 @@
-// frontend/src/pages/AdminDashboardPremium1.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Premium 1 Admin Dashboard — same data/logic as the free dashboard,
-// but with the luxury glass/violet theme from AdminDashboardPremium1.css.
-// All sections (about, skills, projects, etc.) use the same API calls.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Box, AppBar, Toolbar, Drawer, Typography, IconButton, Button,
-  List, ListItemButton, ListItemIcon, ListItemText, Divider,
-  Container, Grid, Paper, TextField, Stack, Alert, Chip,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Tooltip, CircularProgress, CssBaseline, useMediaQuery, useTheme,
-  TextareaAutosize,
-} from "@mui/material";
-import {
-  MdDashboard, MdPerson, MdBuild, MdWork, MdEmojiEvents, MdCode,
-  MdSchool, MdBadge, MdLink, MdDescription, MdLogout, MdMenu,
-  MdSave, MdAdd, MdDelete, MdRefresh, MdStar, MdVisibility,
-  MdLightMode, MdDarkMode, MdArrowBack, MdWorkspacePremium,
-} from "react-icons/md";
-import { useNavigate, useParams } from "react-router-dom";
-
+// src/pages/AdminDashboardPremium1.jsx
 import "./AdminDashboardPremium1.css";
+import React, { useState } from "react";
+import { useParams } from "react-router-dom";
+import TextareaAutosize from "@mui/material/TextareaAutosize";
 
-// ── API helpers (same as free dashboard) ─────────────────────────────────────
 import {
-  getProfile, getSkills, getAllProjectsAdmin, getSocials,
-  getAchievements, getLanguageExperience, getEducation, getExperience,
-  updateProfile, updateSkills, updateSocials, saveAchievements,
-  saveLanguageExperience, updateEducation, updateExperience,
-  addProject, updateProject, deleteProject,
+  AppBar,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  CssBaseline,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  Grid,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+  Alert,
+  FormControl,
+  InputLabel,
+  LinearProgress,
+} from "@mui/material";
+
+import {
+  MdMenu,
+  MdDashboard,
+  MdWork,
+  MdDescription,
+  MdLightMode,
+  MdDarkMode,
+  MdAdd,
+  MdEdit,
+  MdDelete,
+  MdLogout,
+  MdSave,
+  MdUpload,
+  MdEmojiEvents,
+  MdCode,
+  MdLink,
+  MdPerson,
+  MdBuild,
+  MdRefresh,
+  MdVisibility,
+  MdMoreHoriz,
+  MdStar,
+  MdClose,
+  MdSchool,
+  MdBadge,
+  MdCheckCircle,
+  MdWorkspacePremium,
+} from "react-icons/md";
+
+import {
+  getAllProjectsAdmin,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProfile,
+  updateProfile,
+  getSkills,
+  updateSkills,
+  getSocials,
+  updateSocials,
+  getAchievements,
+  saveAchievements,
+  getLanguageExperience,
+  saveLanguageExperience,
+  uploadResume,
+  viewResumeUrl,
+  listResumesAdmin,
+  deleteResumeById,
+  setPrimaryResume,
+  viewResumeByIdUrl,
+  getEducation,
+  updateEducation,
+  getExperience,
+  updateExperience,
 } from "../api/portfolio";
 
-// ─────────────────────────────────────────────────────────────────────────────
+import http from "../api/http";
 
-const DRAWER_W = 240;
-const VIOLET   = "#8b5cf6";
-const BRAND    = "#6d28d9";
+// ── constants ──────────────────────────────────────────────────────────────
+const drawerWidth = 280;
 
-function SmallField({ label, value, onChange, multiline, ...rest }) {
+const bumpContentVersion = () => {
+  localStorage.setItem("content_version", String(Date.now()));
+};
+
+const formatDate = (iso) => {
+  try {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+  } catch {
+    return iso;
+  }
+};
+
+// ── TextField sx ──────────────────────────────────────────────────────────
+const tfSx = {
+  "& .MuiInputLabel-root": { transformOrigin: "top left" },
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "14px",
+    minHeight: 44,
+    alignItems: "center",
+    background: (t) => t.palette.mode === "dark" ? "rgba(45,212,191,0.03)" : "rgba(45,212,191,0.04)",
+    "& .MuiOutlinedInput-input": { boxSizing: "border-box", padding: "12px 14px", lineHeight: 1.35, fontSize: "14px" },
+    "& .MuiOutlinedInput-inputMultiline": { boxSizing: "border-box", padding: "12px 14px", lineHeight: 1.45, fontSize: "14px" },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: (t) => t.palette.mode === "dark" ? "rgba(45,212,191,0.18)" : "rgba(0,0,0,0.12)",
+      transition: "border-color 0.22s ease",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#2dd4bf" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#2dd4bf", borderWidth: "1.5px" },
+  },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#2dd4bf" },
+};
+
+// ── SmallTextField ─────────────────────────────────────────────────────────
+function SmallTextField(props) {
+  const { value, label, multiline, minRows, ...rest } = props;
+  const v = value ?? "";
+  const shrink = Boolean(String(v).length);
   return (
     <TextField
-      label={label}
-      value={value}
-      onChange={onChange}
-      size="small"
-      fullWidth
-      multiline={multiline}
-      minRows={multiline ? 2 : undefined}
-      className="p1-field"
-      sx={{ "& .MuiInputBase-root": { borderRadius: "10px" } }}
       {...rest}
+      label={label}
+      value={v}
+      fullWidth
+      size="small"
+      variant="outlined"
+      multiline={multiline}
+      minRows={minRows}
+      InputLabelProps={{ shrink, ...(props.InputLabelProps || {}) }}
+      sx={{
+        ...tfSx,
+        ...(multiline ? { "& .MuiOutlinedInput-root": { alignItems: "flex-start" } } : null),
+        ...(props.sx || {}),
+      }}
     />
   );
 }
 
-function StatCard({ title, value, icon, color = VIOLET }) {
+// ── StatCard ───────────────────────────────────────────────────────────────
+function StatCard({ title, value, subtitle, icon, trendLabel }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   return (
-    <Paper className="p1-stat-card" sx={{ p: 2.5 }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: "14px",
-            background: `linear-gradient(135deg, ${color}30, ${color}18)`,
-            border: `1px solid ${color}40`,
-            display: "grid",
-            placeItems: "center",
-            color,
-            fontSize: 22,
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="caption" sx={{ opacity: 0.65, letterSpacing: "0.06em" }}>
-            {title}
-          </Typography>
-          <Typography className="p1-stat-number">{value}</Typography>
+    <Box
+      className={`p1-stat p1-neon-top ${isDark ? "" : "p1-stat-light"}`}
+      sx={{ p: { xs: 2, md: 2.5 } }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1.8}>
+        <Box className="p1-stat-icon">{icon}</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mb: 0.3 }}>
+            <Typography className="p1-stat-label">{title}</Typography>
+            {trendLabel && <Chip label={trendLabel} size="small" className="p1-stat-chip" />}
+          </Stack>
+          <Typography className="p1-stat-value">{value}</Typography>
+          {subtitle && <Typography className="p1-stat-sub">{subtitle}</Typography>}
         </Box>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── SectionHeader ──────────────────────────────────────────────────────────
+function SectionHeader({ title, subtitle, right }) {
+  return (
+    <Box className="p1-sec-header">
+      <Box>
+        <Typography className="p1-sec-title">{title}</Typography>
+        {subtitle && <Typography className="p1-sec-sub">{subtitle}</Typography>}
+      </Box>
+      {right && <Box sx={{ display: "flex", justifyContent: "flex-end" }}>{right}</Box>}
+    </Box>
+  );
+}
 
-export default function AdminDashboardPremium1({ setDarkMode }) {
+// ── SimpleItemDialog ───────────────────────────────────────────────────────
+function SimpleItemDialog({ open, title, children, onClose, onSave, saveText = "Save" }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="md"
+      className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
+    >
+      <DialogTitle className="p1-dialog-title" sx={{ pb: 1 }}>{title}</DialogTitle>
+      <DialogContent sx={{ pt: 2 }}>{children}</DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="p1-btn-outlined" startIcon={<MdClose />}>Cancel</Button>
+        <Button onClick={onSave} size="small" className="p1-btn-primary" startIcon={<MdSave />}>{saveText}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ConfirmDialog ──────────────────────────────────────────────────────────
+function ConfirmDialog({ open, title, description, confirmText, onClose, onConfirm }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="xs"
+      className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
+    >
+      <DialogTitle className="p1-dialog-title">{title}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ opacity: 0.82 }}>{description}</Typography>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="p1-btn-outlined">Cancel</Button>
+        <Button onClick={onConfirm} size="small" className="p1-btn-error">{confirmText}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ProjectEditorDialog ────────────────────────────────────────────────────
+function ProjectEditorDialog({ open, mode, initial, onClose, onSave }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const [form, setForm] = useState(
+    initial || { title: "", description: "", tech: "", liveUrl: "", repoUrl: "", featured: true }
+  );
+
+  React.useEffect(() => {
+    setForm(initial || { title: "", description: "", tech: "", liveUrl: "", repoUrl: "", featured: true });
+  }, [initial, open]);
+
+  const handleChange = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const canSave = form.title.trim().length >= 2;
+
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="sm"
+      className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
+    >
+      <DialogTitle className="p1-dialog-title">
+        {mode === "edit" ? "Edit Project" : "Add Project"}
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}><SmallTextField label="Project Title" value={form.title} onChange={handleChange("title")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Tech Stack (comma separated)" value={form.tech} onChange={handleChange("tech")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Repo URL" value={form.repoUrl} onChange={handleChange("repoUrl")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Live URL" value={form.liveUrl} onChange={handleChange("liveUrl")} /></Grid>
+
+          <Grid item xs={12} sx={{ width: "100%" }}>
+            <SmallTextField
+              label="Description" value={form.description || ""} onChange={handleChange("description")}
+              fullWidth multiline
+              InputProps={{ inputComponent: TextareaAutosize, inputProps: { minRows: 2 } }}
+              sx={{ width: "100%", "& .MuiInputBase-root": { width: "100%", alignItems: "flex-start" }, "& textarea": { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "break-word" } }}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Stack direction="row" spacing={1.2} alignItems="center">
+              <Chip
+                label={form.featured ? "Featured: YES" : "Featured: NO"}
+                className={form.featured ? "p1-chip-yes" : "p1-chip-no"}
+              />
+              <Button size="small" className="p1-btn-outlined"
+                onClick={() => setForm((p) => ({ ...p, featured: !p.featured }))}>
+                Toggle Featured
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="p1-btn-outlined" startIcon={<MdClose />}>Cancel</Button>
+        <Button disabled={!canSave} onClick={() => onSave(form)} size="small" className="p1-btn-primary" startIcon={<MdSave />}>
+          {mode === "edit" ? "Save Changes" : "Add Project"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ResumePreviewDialog ────────────────────────────────────────────────────
+function ResumePreviewDialog({ open, title, onClose, url, blobUrl, loading }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const src = blobUrl || url;
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="md"
+      className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
+    >
+      <DialogTitle className="p1-dialog-title" sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, py: 1.5 }}>
+        {title}
+      </DialogTitle>
+      <DialogContent sx={{ height: { xs: 480, md: 580 }, p: 0, overflow: "hidden", bgcolor: "black" }}>
+        {loading ? (
+          <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Loading preview…</Typography></Box>
+        ) : src ? (
+          <Box sx={{ width: "100%", height: "100%", overflow: "hidden" }}>
+            <iframe
+              title="Resume Preview"
+              src={
+                isMobile
+                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+                  : `${src}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+              }
+              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Preview not available.</Typography></Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="p1-btn-outlined" startIcon={<MdClose />}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ResumeUploadSuccessDialog ──────────────────────────────────────────────
+function ResumeUploadSuccessDialog({ open, fileName, onClose }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="xs"
+      className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
+    >
+      <DialogTitle className="p1-dialog-title">Upload Successful ✓</DialogTitle>
+      <DialogContent>
+        <Stack spacing={1.5} alignItems="center" sx={{ py: 1 }}>
+          <Box sx={{
+            width: 56, height: 56, borderRadius: "50%",
+            background: "linear-gradient(135deg,rgba(34,197,94,0.18),rgba(34,197,94,0.08))",
+            border: "1.5px solid rgba(34,197,94,0.32)",
+            display: "grid", placeItems: "center",
+          }}>
+            <MdCheckCircle style={{ fontSize: "1.8rem", color: "#86efac" }} />
+          </Box>
+          <Typography sx={{ fontWeight: 700, opacity: 0.90, textAlign: "center" }}>
+            "{fileName}" has been successfully uploaded.
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.55, textAlign: "center" }}>
+            You can now set it as the primary resume from the list below.
+          </Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button className="p1-btn-primary" onClick={onClose}>OK</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN EXPORT — AdminDashboardPremium1
+// ═══════════════════════════════════════════════════════════════════════════
+export default function AdminDashboardPremium1(props) {
   const { username } = useParams();
-  const navigate     = useNavigate();
-  const theme        = useTheme();
-  const isMobile     = useMediaQuery(theme.breakpoints.down("md"));
+  React.useEffect(() => { document.title = `${username || "Admin"} · Admin Panel · Premium`; }, [username]);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isDark = theme.palette.mode === "dark";
+
+  // ── STATE ────────────────────────────────────────────────────────────────
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [active, setActive]         = useState("dashboard");
-  const [loading, setLoading]       = useState(false);
-  const [ok, setOk]                 = useState("");
-  const [err, setErr]               = useState("");
+  const [active, setActive] = useState("dashboard");
+  const [loading, setLoading] = useState(false);
+  const [ok, setOk] = useState("");
+  const [err, setErr] = useState("");
 
-  // ── Data states ──────────────────────────────────────────────────────────
-  const [profile,      setProfile]      = useState({});
-  const [skills,       setSkills]       = useState({ frontend: "", backend: "", tools: "" });
-  const [projects,     setProjects]     = useState([]);
-  const [socials,      setSocials]      = useState({});
+  const [profile, setProfile] = useState({ name: "", title: "", tagline: "", location: "", emailPublic: "", initials: "", about: "" });
+  const [skills, setSkills] = useState({ frontend: "", backend: "", database: "", tools: "" });
+
+  const [skillCategory, setSkillCategory] = useState("frontend");
+  const [skillInput, setSkillInput] = useState("");
+  const [skillTable, setSkillTable] = useState([]);
+  const [editIndex, setEditIndex] = useState(null);
+  const [editValue, setEditValue] = useState("");
+
+  const [projects, setProjects] = useState([]);
+  const [socials, setSocials] = useState({ github: "", linkedin: "", email: "", phone: "", website: "" });
   const [achievements, setAchievements] = useState([]);
-  const [languages,    setLanguages]    = useState([]);
-  const [education,    setEducation]    = useState([]);
-  const [experience,   setExperience]   = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [education, setEducation] = useState([]);
+  const [experience, setExperience] = useState([]);
 
-  // ── Load all data ─────────────────────────────────────────────────────────
-  const fetchAll = async () => {
-    if (!username) return;
-    setLoading(true);
+  const [projDlgOpen, setProjDlgOpen] = useState(false);
+  const [projDlgMode, setProjDlgMode] = useState("add");
+  const [projDlgInitial, setProjDlgInitial] = useState(null);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmPayload, setConfirmPayload] = useState({ title: "", description: "", confirmText: "", onConfirm: null });
+
+  const [achDlgOpen, setAchDlgOpen] = useState(false);
+  const [achEditingId, setAchEditingId] = useState(null);
+  const [achForm, setAchForm] = useState({ title: "", issuer: "", year: "", link: "" });
+
+  const [langDlgOpen, setLangDlgOpen] = useState(false);
+  const [langEditingId, setLangEditingId] = useState(null);
+  const [langForm, setLangForm] = useState({ language: "", level: "Beginner", years: 1, notes: "" });
+
+  const [eduDlgOpen, setEduDlgOpen] = useState(false);
+  const [eduEditingId, setEduEditingId] = useState(null);
+  const [eduForm, setEduForm] = useState({ degree: "", institution: "", year: "", details: "" });
+
+  const [expDlgOpen, setExpDlgOpen] = useState(false);
+  const [expEditingId, setExpEditingId] = useState(null);
+  const [expForm, setExpForm] = useState({ company: "", role: "", start: "", end: "", description: "" });
+
+  const [resumes, setResumes] = useState([]);
+  const [resumeMenuAnchor, setResumeMenuAnchor] = useState(null);
+  const [resumeMenuPosition, setResumeMenuPosition] = useState(null);
+  const [resumeMenuItem, setResumeMenuItem] = useState(null);
+  const [resumePreviewOpen, setResumePreviewOpen] = useState(false);
+  const [resumePreviewTitle, setResumePreviewTitle] = useState("");
+  const [resumePreviewBlobUrl, setResumePreviewBlobUrl] = useState("");
+  const [resumePreviewLoading, setResumePreviewLoading] = useState(false);
+
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
+  const [resumeUploadedName, setResumeUploadedName] = useState("");
+
+  const [certUploading, setCertUploading] = useState(null);
+
+  const [certPreviewOpen, setCertPreviewOpen] = useState(false);
+  const [certPreviewSrc, setCertPreviewSrc] = useState("");
+  const [certPreviewTitle, setCertPreviewTitle] = useState("");
+  const [certPreviewIsImage, setCertPreviewIsImage] = useState(false);
+  const [certPreviewLoading, setCertPreviewLoading] = useState(false);
+  const [certPreviewAchId, setCertPreviewAchId] = useState(null);
+
+  const handleDrawerToggle = () => setMobileOpen((p) => !p);
+
+  // ── HANDLERS ──────────────────────────────────────────────────────────────
+
+  const fetchAllAdmin = async () => {
     try {
-      const [p, sk, pr, so, ac, la, ed, ex] = await Promise.all([
-        getProfile(username),
-        getSkills(username),
-        getAllProjectsAdmin(username),
-        getSocials(username),
-        getAchievements(username),
-        getLanguageExperience(username),
-        getEducation(username),
-        getExperience(username),
+      setErr(""); setOk(""); setLoading(true);
+      const [p, s, pr, so, a, l, edu, exp] = await Promise.all([
+        getProfile(username), getSkills(username), getAllProjectsAdmin(username), getSocials(username),
+        getAchievements(username), getLanguageExperience(username), getEducation(username), getExperience(username),
       ]);
-      setProfile(p?.data  || {});
-      setSkills(sk?.data  || { frontend: "", backend: "", tools: "" });
+      setProfile(p?.data || {});
+      setSkills(s?.data || {});
+      const table = [];
+      const data = s?.data || {};
+      ["frontend", "backend", "database", "tools"].forEach(cat => {
+        if (data[cat]) data[cat].split(",").forEach(sk => { if (sk.trim()) table.push({ category: cat, name: sk.trim() }); });
+      });
+      setSkillTable(table);
       setProjects(pr?.data || []);
-      setSocials(so?.data  || {});
-      setAchievements(ac?.data || []);
-      setLanguages(la?.data    || []);
-      setEducation(ed?.data    || []);
-      setExperience(ex?.data   || []);
-    } catch { /* ignore */ }
+      setSocials(so?.data || {});
+      setAchievements(Array.isArray(a?.data) ? a.data : []);
+      setLanguages(Array.isArray(l?.data) ? l.data : []);
+      setEducation(Array.isArray(edu?.data) ? edu.data : []);
+      setExperience(Array.isArray(exp?.data) ? exp.data : []);
+try { const r = await listResumesAdmin(username); if (r?.data && Array.isArray(r.data)) setResumes(r.data); } catch {}
+      setOk("Admin data loaded from DB.");
+    } catch { setErr("Failed to load Admin data. Check backend is running + token + CORS."); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, [username]);
+  React.useEffect(() => { fetchAllAdmin(); }, []); // eslint-disable-line
 
-  const flash = (msg, isErr = false) => {
-    if (isErr) setErr(msg); else setOk(msg);
-    setTimeout(() => { setErr(""); setOk(""); }, 3000);
+  const toggleTheme = () => {
+    if (typeof props?.setDarkMode === "function") { props.setDarkMode((p) => !p); return; }
+    const next = theme.palette.mode !== "dark";
+    localStorage.setItem("admin_pref_dark", next ? "1" : "0");
+    setOk("Theme toggle clicked. (Wire setDarkMode from App.jsx to apply instantly)");
   };
 
-  // ── Saves ─────────────────────────────────────────────────────────────────
-  const save = async (fn, data, label) => {
+  const [pushDialog, setPushDialog] = useState({ open: false, name: "" });
+  const handlePushResume = async (r) => { await pushResumeToViewer(r); setPushDialog({ open: true, name: r.fileName || "Resume.pdf" }); };
+
+  const saveProfileNow = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await updateProfile(username, profile); setOk("Profile saved to DB."); bumpContentVersion(); }
+    catch { setErr("Saving profile failed."); } finally { setLoading(false); }
+  };
+
+  const saveSkillsNow = async () => {
     try {
-      await fn(username, data);
-      flash(`${label} saved ✓`);
-    } catch { flash(`Save failed`, true); }
+      setErr(""); setOk(""); setLoading(true);
+      const payload = {
+        frontend: skillTable.filter(s => s.category === "frontend").map(s => s.name).join(","),
+        backend: skillTable.filter(s => s.category === "backend").map(s => s.name).join(","),
+        database: skillTable.filter(s => s.category === "database").map(s => s.name).join(","),
+        tools: skillTable.filter(s => s.category === "tools").map(s => s.name).join(","),
+      };
+      await updateSkills(username, payload);
+      setOk("Skills saved to database successfully"); bumpContentVersion();
+    } catch (e) { console.error(e); setErr("Skills save failed"); } finally { setLoading(false); }
   };
 
-  // ── Sidebar nav ──────────────────────────────────────────────────────────
+  const addSkill = () => { if (!skillInput.trim()) return; setSkillTable(p => [...p, { category: skillCategory, name: skillInput.trim() }]); setSkillInput(""); };
+  const deleteSkill = (index) => {
+    setConfirmPayload({
+      title: "Delete Skill?",
+      description: `Remove "${skillTable[index]?.name}" from skills?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setSkillTable(p => p.filter((_, i) => i !== index)); },
+    });
+    setConfirmOpen(true);
+  };
+  const startEditSkill = (i) => { setEditIndex(i); setEditValue(skillTable[i].name); };
+  const saveEditSkill = (i) => { setSkillTable(p => p.map((x, idx) => (idx === i ? { ...x, name: editValue } : x))); setEditIndex(null); };
+
+  const saveSocialsNow = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await updateSocials(username, socials); setOk("Contact / Links saved to DB."); bumpContentVersion(); }
+    catch { setErr("Saving socials failed."); } finally { setLoading(false); }
+  };
+
+  const openAddProject = () => { setProjDlgMode("add"); setProjDlgInitial(null); setProjDlgOpen(true); };
+  const openEditProject = (proj) => { setProjDlgMode("edit"); setProjDlgInitial(proj); setProjDlgOpen(true); };
+
+  const onSaveProjectDialog = async (form) => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      if (projDlgMode === "edit" && projDlgInitial?.id) { await updateProject(username, projDlgInitial.id, form); setOk("Project updated."); }
+      else { await createProject(username, form); setOk("Project added."); }
+      setProjDlgOpen(false); await fetchAllAdmin(); bumpContentVersion();
+    } catch { setErr("Project save failed."); } finally { setLoading(false); }
+  };
+
+  const askDeleteProject = (proj) => {
+    setConfirmPayload({
+      title: "Delete Project?",
+      description: `This will permanently delete "${proj.title}".`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        try { setConfirmOpen(false); setErr(""); setOk(""); setLoading(true); await deleteProject(username, proj.id); setOk("Project deleted."); await fetchAllAdmin(); bumpContentVersion(); }
+        catch { setErr("Delete failed."); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const openAchAdd = () => { setAchEditingId(null); setAchForm({ title: "", issuer: "", year: "", link: "" }); setAchDlgOpen(true); };
+  const openAchEdit = (a) => { setAchEditingId(a.id); setAchForm({ title: a.title || "", issuer: a.issuer || "", year: a.year || "", link: a.link || "" }); setAchDlgOpen(true); };
+
+  const deleteAchLocal = (id) => {
+    const ach = achievements.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Achievement?",
+      description: `Remove "${ach?.title || "this achievement"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setAchievements((p) => p.filter((x) => x.id !== id)); },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveAchLocal = () => {
+    if (achEditingId) setAchievements((p) => p.map((x) => (x.id === achEditingId ? { ...x, ...achForm } : x)));
+    else setAchievements((p) => [{ ...achForm, id: Date.now() }, ...p]);
+    setAchDlgOpen(false);
+  };
+
+  const persistAchievements = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await saveAchievements(username, achievements.map(({ id, ...rest }) => rest)); setOk("Achievements saved to DB."); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving achievements failed."); } finally { setLoading(false); }
+  };
+
+  const openLangAdd = () => { setLangEditingId(null); setLangForm({ language: "", level: "Beginner", years: 1, notes: "" }); setLangDlgOpen(true); };
+  const openLangEdit = (l) => { setLangEditingId(l.id); setLangForm({ language: l.language || l.name || "", level: l.level || "Beginner", years: Number(l.years || 1), notes: l.notes || "" }); setLangDlgOpen(true); };
+
+  const deleteLangLocal = (id) => {
+    const lang = languages.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Language?",
+      description: `Remove "${lang?.language || lang?.name || "this language"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setLanguages((p) => p.filter((x) => x.id !== id)); },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveLangLocal = () => {
+    if (langEditingId) setLanguages((p) => p.map((x) => (x.id === langEditingId ? { ...x, ...langForm } : x)));
+    else setLanguages((p) => [{ ...langForm, id: Date.now() }, ...p]);
+    setLangDlgOpen(false);
+  };
+
+  const persistLanguages = async () => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      const payload = languages.map((l) => ({ language: l.language || l.name || "", level: l.level || "Beginner", years: String(l.years ?? 1), notes: l.notes || "" }));
+      await saveLanguageExperience(username, payload); setOk("Languages experience saved to DB."); await fetchAllAdmin(); bumpContentVersion();
+    } catch { setErr("Saving language experience failed."); } finally { setLoading(false); }
+  };
+
+  const openEduAdd = () => { setEduEditingId(null); setEduForm({ degree: "", institution: "", year: "", details: "" }); setEduDlgOpen(true); };
+  const openEduEdit = (e) => { setEduEditingId(e.id); setEduForm({ degree: e.degree || "", institution: e.institution || "", year: e.year || "", details: e.details || "" }); setEduDlgOpen(true); };
+
+  const deleteEduLocal = async (id) => {
+    const edu = education.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Education?",
+      description: `Remove "${edu?.degree || "this education record"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        const prev = education; const next = prev.filter((x) => x.id !== id); setEducation(next);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          let deleted = false;
+          try { await http.delete(`/portfolio/education/${id}`); deleted = true; } catch {}
+          if (!deleted) { const payload = next.map(({ id: _id, ...rest }) => rest); await updateEducation(username, payload); }
+          setOk("Education deleted."); await fetchAllAdmin(); bumpContentVersion();
+        } catch { setErr("Deleting education failed."); setEducation(prev); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveEduLocal = () => {
+    if (eduEditingId) setEducation((p) => p.map((x) => (x.id === eduEditingId ? { ...x, ...eduForm } : x)));
+    else setEducation((p) => [{ ...eduForm, id: Date.now() }, ...p]);
+    setEduDlgOpen(false);
+  };
+
+  const persistEducation = async () => {
+try { setErr(""); setOk(""); setLoading(true); const payload = education.map(({ id, ...rest }) => rest); await updateEducation(username, payload); setOk("Education saved to DB."); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving education failed."); } finally { setLoading(false); }
+  };
+
+  const openExpAdd = () => { setExpEditingId(null); setExpForm({ company: "", role: "", start: "", end: "", description: "" }); setExpDlgOpen(true); };
+  const openExpEdit = (e) => { setExpEditingId(e.id); setExpForm({ company: e.company || "", role: e.role || "", start: e.start || "", end: e.end || "", description: e.description || "" }); setExpDlgOpen(true); };
+
+  const deleteExpLocal = async (id) => {
+    const exp = experience.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Experience?",
+      description: `Remove "${exp?.company || "this experience record"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        const prev = experience; const next = prev.filter((x) => x.id !== id); setExperience(next);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          let deleted = false;
+          try { await http.delete(`/portfolio/experience/${id}`); deleted = true; } catch {}
+          if (!deleted) { const payload = next.map(({ id: _id, ...rest }) => rest); await updateExperience(username, payload); }
+          setOk("Experience deleted."); await fetchAllAdmin(); bumpContentVersion();
+        } catch { setErr("Deleting experience failed."); setExperience(prev); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveExpLocal = () => {
+    if (expEditingId) setExperience((p) => p.map((x) => (x.id === expEditingId ? { ...x, ...expForm } : x)));
+    else setExperience((p) => [{ ...expForm, id: Date.now() }, ...p]);
+    setExpDlgOpen(false);
+  };
+
+  const persistExperience = async () => {
+    try { setErr(""); setOk(""); setLoading(true); const payload = experience.map(({ id, ...rest }) => rest); await updateExperience(username, payload); setOk("Experience saved to DB."); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving experience failed."); } finally { setLoading(false); }
+  };
+
+  const onUploadResume = async (file) => {
+    try {
+      setErr(""); setOk("");
+      setResumeUploading(true);
+      setResumeUploadedName(file.name);
+      await uploadResume(username, file);
+      const r = await listResumesAdmin(username);
+      if (r?.data && Array.isArray(r.data)) setResumes(r.data);
+      bumpContentVersion();
+      setResumeUploadSuccess(true);
+    }
+    catch { setErr("Resume upload failed."); }
+    finally { setResumeUploading(false); }
+  };
+
+  const openResumePreviewInline = async (title, directUrl) => {
+    try {
+      setResumePreviewTitle(title || "Resume Preview"); setResumePreviewLoading(true); setResumePreviewOpen(true);
+      const res = await http.get(directUrl, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      setResumePreviewBlobUrl(URL.createObjectURL(blob));
+    } catch { setResumePreviewBlobUrl(""); } finally { setResumePreviewLoading(false); }
+  };
+
+  const closeResumePreview = () => {
+    setResumePreviewOpen(false);
+    if (resumePreviewBlobUrl) { try { URL.revokeObjectURL(resumePreviewBlobUrl); } catch {} }
+    setResumePreviewBlobUrl("");
+  };
+
+  const previewCurrentResumeInline = async () => openResumePreviewInline("Current Resume", viewResumeUrl(username));
+
+  const pushResumeToViewer = async (item) => {
+    try { if (!item?.id) return; setErr(""); setOk(""); setLoading(true); await setPrimaryResume(username, item.id); setOk(`Pushed to Viewer: ${item.fileName || "Resume"}`); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Failed to push resume to Viewer."); } finally { setLoading(false); }
+  };
+
+  const openResumeMenu = (event, resume) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setResumeMenuAnchor(event.currentTarget);
+    setResumeMenuPosition({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX });
+    setResumeMenuItem(resume);
+  };
+
+  const closeResumeMenu = () => {
+    setResumeMenuAnchor(null);
+    setResumeMenuPosition(null);
+    setResumeMenuItem(null);
+  };
+
+  const previewSelectedResumeInline = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    await openResumePreviewInline(item.fileName || "Resume", viewResumeByIdUrl(username, item.id));
+  };
+
+  const makePrimaryResume = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    try { setErr(""); setOk(""); setLoading(true); await setPrimaryResume(item.id); setOk("Primary resume set."); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Failed to set primary."); } finally { setLoading(false); }
+  };
+
+  const deleteResume = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    setConfirmPayload({
+      title: "Delete Resume?",
+      description: `Permanently delete "${item.fileName || "this resume"}"?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        try { setErr(""); setOk(""); setLoading(true); await deleteResumeById(username, item.id); setOk("Resume deleted."); await fetchAllAdmin(); bumpContentVersion(); }
+        catch { setErr("Failed to delete resume."); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  // ── Certificate upload handlers ───────────────────────────────────────────
+  const onUploadCertificate = async (achId, file) => {
+    if (!file) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    if (!allowed.includes(file.type)) {
+      setErr("Only PDF, JPEG, and PNG files are allowed for certificates.");
+      return;
+    }
+    try {
+      setErr(""); setOk("");
+      setCertUploading(achId);
+      const formData = new FormData();
+      formData.append("file", file);
+      await http.post(`/portfolio/achievements/${achId}/certificate`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setOk("Certificate uploaded successfully.");
+      await fetchAllAdmin();
+      bumpContentVersion();
+    } catch { setErr("Certificate upload failed."); }
+    finally { setCertUploading(null); }
+  };
+
+  const onDeleteCertificate = async (achId) => {
+    setConfirmPayload({
+      title: "Delete Certificate?",
+      description: "This will permanently remove the certificate file.",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          await http.delete(`/portfolio/achievements/${achId}/certificate`);
+          setOk("Certificate deleted.");
+          await fetchAllAdmin();
+          bumpContentVersion();
+        } catch { setErr("Failed to delete certificate."); }
+        finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const onPreviewCertificate = async (ach) => {
+    setCertPreviewTitle(ach.title || "Certificate");
+    setCertPreviewSrc("");
+    setCertPreviewIsImage(false);
+    setCertPreviewAchId(ach.id);
+    setCertPreviewLoading(true);
+    setCertPreviewOpen(true);
+    try {
+      const res = await http.get(
+        `/portfolio/achievements/${ach.id}/certificate`,
+        { responseType: "arraybuffer" }
+      );
+      const contentType = res.headers["content-type"] || ach.certificateContentType || "application/pdf";
+      const blob = new Blob([res.data], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      setCertPreviewSrc(url);
+      setCertPreviewIsImage(contentType.startsWith("image/"));
+    } catch {
+      setCertPreviewSrc("");
+    } finally {
+      setCertPreviewLoading(false);
+    }
+  };
+
+  const closeCertPreview = () => {
+    setCertPreviewOpen(false);
+    if (certPreviewSrc) {
+      try { URL.revokeObjectURL(certPreviewSrc); } catch {}
+    }
+    setCertPreviewSrc("");
+  };
+
+  // ── Labels & nav ──────────────────────────────────────────────────────────
+  const pageLabel = {
+    dashboard: "Dashboard", about: "About Me", skills: "Skills", projects: "Projects",
+    achievements: "Achievements", languages: "Languages Experience", education: "Education",
+    experience: "Experience", contact: "Contact / Links", resume: "Resume",
+  };
+
   const navItems = [
-    { id: "dashboard",    label: "Dashboard",        icon: <MdDashboard /> },
-    { id: "about",        label: "About Me",          icon: <MdPerson /> },
-    { id: "skills",       label: "Skills",            icon: <MdBuild /> },
-    { id: "projects",     label: "Projects",          icon: <MdWork /> },
-    { id: "achievements", label: "Achievements",      icon: <MdEmojiEvents /> },
-    { id: "languages",    label: "Languages",         icon: <MdCode /> },
-    { id: "education",    label: "Education",         icon: <MdSchool /> },
-    { id: "experience",   label: "Experience",        icon: <MdBadge /> },
-    { id: "contact",      label: "Contact / Links",   icon: <MdLink /> },
+    { id: "dashboard", label: "Dashboard", icon: <MdDashboard /> },
+    { id: "about", label: "About Me", icon: <MdPerson /> },
+    { id: "skills", label: "Skills", icon: <MdBuild /> },
+    { id: "projects", label: "Projects", icon: <MdWork /> },
+    { id: "achievements", label: "Achievements", icon: <MdEmojiEvents /> },
+    { id: "languages", label: "Languages Exp", icon: <MdCode /> },
+    { id: "education", label: "Education", icon: <MdSchool /> },
+    { id: "experience", label: "Experience", icon: <MdBadge /> },
+    { id: "contact", label: "Contact / Links", icon: <MdLink /> },
+    { id: "resume", label: "Resume", icon: <MdDescription /> },
   ];
 
-  const sidebar = (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }} className="p1-sidebar">
-      {/* Logo */}
-      <Box sx={{ px: 2.5, py: 2.5, display: "flex", alignItems: "center", gap: 1.2 }}>
-        <Box
-          sx={{
-            width: 38, height: 38, borderRadius: "10px",
-            background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-            display: "grid", placeItems: "center", color: "#fff", fontSize: 20,
-          }}
-        >
-          <MdWorkspacePremium />
-        </Box>
-        <Box>
-          <Typography sx={{ fontWeight: 900, color: "#c4b5fd", fontSize: "0.92rem", lineHeight: 1 }}>
-            Portfolio Admin
-          </Typography>
-          <span className="p1-premium-badge">PREMIUM 1</span>
+  // ── Button + table shorthands ─────────────────────────────────────────────
+  const PBtn = ({ children, ...p }) => <Button size="small" className="p1-btn-primary" fullWidth={isMobile} {...p}>{children}</Button>;
+  const OBtn = ({ children, ...p }) => <Button size="small" className="p1-btn-outlined" fullWidth={isMobile} {...p}>{children}</Button>;
+
+  const IconEdit = ({ onClick }) => (
+    <IconButton size="small" className={`p1-icon-btn ${isDark ? "" : "p1-icon-btn-light"}`} onClick={onClick}><MdEdit /></IconButton>
+  );
+  const IconDel = ({ onClick }) => (
+    <IconButton size="small" className="p1-icon-btn-err" onClick={onClick}><MdDelete /></IconButton>
+  );
+
+  const TableWrap = ({ children }) => (
+    <Paper elevation={0} className={`p1-table-wrap ${isDark ? "" : "p1-table-wrap-light"}`}>
+      <TableContainer>{children}</TableContainer>
+    </Paper>
+  );
+
+  const THead = ({ cols }) => (
+    <TableHead>
+      <TableRow>
+        {cols.map((c, i) => (
+          <TableCell key={i} sx={c.sx} className={`p1-th ${isDark ? "" : "p1-th-light"}`}>{c.label}</TableCell>
+        ))}
+      </TableRow>
+    </TableHead>
+  );
+
+  const TRow = ({ children }) => (
+    <TableRow className="p1-tr" sx={{ "& .MuiTableCell-root": { verticalAlign: "middle" } }}>
+      {children}
+    </TableRow>
+  );
+
+  const TC = ({ children, bold, sx, colSpan }) => (
+    <TableCell
+      colSpan={colSpan}
+      className={`p1-td ${isDark ? "" : "p1-td-light"}`}
+      sx={{ fontWeight: bold ? 800 : undefined, verticalAlign: "middle", ...sx }}
+    >
+      {children}
+    </TableCell>
+  );
+
+  // ── Drawer content ────────────────────────────────────────────────────────
+  const drawer = (
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Box className={`p1-drawer-header ${isDark ? "" : "p1-drawer-header-light"}`}>
+        <Avatar className="p1-drawer-avatar"><MdWorkspacePremium size={20} /></Avatar>
+        <Box className="p1-drawer-brand-text">
+          <Typography className="p1-drawer-brand-name">{username || "Admin"}</Typography>
+          <Typography className="p1-drawer-brand-sub">Premium · Portfolio Manager</Typography>
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: "rgba(139,92,246,0.2)" }} />
+      <Box sx={{ flex: 1, overflowY: "auto", py: 1 }} className="p1-scroll">
+        <Typography className="p1-nav-section">Navigation</Typography>
+        <List disablePadding>
+          {navItems.map((it) => (
+            <ListItemButton
+              key={it.id}
+              onClick={() => { setActive(it.id); setMobileOpen(false); }}
+              className={`p1-nav-item ${active === it.id ? "p1-nav-item-active" : ""}`}
+            >
+              <ListItemIcon className={`p1-nav-icon ${isDark ? "" : "p1-nav-icon-light"}`}>
+                {it.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={it.label}
+                className={`p1-nav-label ${isDark ? "" : "p1-nav-label-light"}`}
+                primaryTypographyProps={{ fontSize: "0.875rem", fontWeight: active === it.id ? 800 : 600 }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
 
-      <List sx={{ px: 1, py: 1, flex: 1 }}>
-        {navItems.map((it) => (
-          <ListItemButton
-            key={it.id}
-            selected={active === it.id}
-            className="p1-nav-item"
-            onClick={() => { setActive(it.id); setMobileOpen(false); }}
-          >
-            <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>{it.icon}</ListItemIcon>
-            <ListItemText primary={it.label} primaryTypographyProps={{ fontWeight: 800, fontSize: "0.88rem" }} />
-          </ListItemButton>
-        ))}
-      </List>
-
-      <Divider sx={{ borderColor: "rgba(139,92,246,0.2)" }} />
-
-      <Box sx={{ p: 1.5 }}>
-        {/* Switch to free */}
+      <Box sx={{ p: 1.5, borderTop: isDark ? "1px solid rgba(45,212,191,0.10)" : "1px solid rgba(17,24,39,0.07)" }}>
         <Button
           fullWidth
-          variant="outlined"
-          startIcon={<MdArrowBack />}
-          size="small"
-          onClick={() => navigate(`/${username}/adminpanel`)}
-          sx={{
-            mb: 1, borderRadius: 999, fontWeight: 800, fontSize: "0.78rem",
-            borderColor: "rgba(139,92,246,0.4)", color: "#a78bfa",
-          }}
-        >
-          Free Version
-        </Button>
-        {/* View premium viewer */}
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<MdVisibility />}
-          size="small"
-          onClick={() => window.open(`/${username}/premium1`, "_blank")}
-          sx={{
-            mb: 1, borderRadius: 999, fontWeight: 800, fontSize: "0.78rem",
-            borderColor: "rgba(139,92,246,0.4)", color: "#a78bfa",
-          }}
-        >
-          View Portfolio
-        </Button>
-        {/* Logout */}
-        <Button
-          fullWidth
-          variant="contained"
+          className="p1-logout"
           startIcon={<MdLogout />}
-          size="small"
           onClick={() => { localStorage.removeItem("token"); window.location.href = "/admin-login"; }}
-          sx={{
-            borderRadius: 999, fontWeight: 800, fontSize: "0.78rem",
-            background: "linear-gradient(135deg, #dc2626, #991b1b)",
-          }}
         >
           Logout
         </Button>
@@ -251,511 +960,825 @@ export default function AdminDashboardPremium1({ setDarkMode }) {
     </Box>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0d0d1a, #1a0533 60%, #0d0d1a)",
-      }}
-    >
+<Box
+  sx={{ display: "flex", minHeight: "100vh" }}
+  className={`adm-root ${isDark ? "adm-root-dark" : "adm-root-light"}`}
+>
       <CssBaseline />
 
-      {/* AppBar */}
+      {isDark && (
+        <Box className="p1-bg" aria-hidden="true">
+          <Box className="p1-orb p1-orb-1" />
+          <Box className="p1-orb p1-orb-2" />
+          <Box className="p1-orb p1-orb-3" />
+          <Box className="p1-grid" />
+        </Box>
+      )}
+
       <AppBar
         position="fixed"
         elevation={0}
-        className="p1-appbar"
-        sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}
+        className={isDark ? "p1-appbar" : "p1-appbar p1-appbar-light"}
+        sx={{ zIndex: (t) => t.zIndex.drawer + 1, color: "text.primary" }}
       >
         <Toolbar sx={{ gap: 1 }}>
-          {isMobile && (
-            <IconButton color="inherit" onClick={() => setMobileOpen(!mobileOpen)} sx={{ mr: 0.5 }}>
-              <MdMenu />
-            </IconButton>
-          )}
+          <IconButton
+            edge="start"
+            onClick={handleDrawerToggle}
+            className={`p1-bar-btn ${isDark ? "" : "p1-bar-btn-light"}`}
+            sx={{ mr: 0.5, display: { md: "none" } }}
+          >
+            <MdMenu />
+          </IconButton>
 
-          <Typography sx={{ fontWeight: 900, flexGrow: 1, color: "#c4b5fd" }}>
-            {navItems.find((n) => n.id === active)?.label || "Premium Dashboard"}
+          <Typography className="p1-bar-title" sx={{ flexGrow: 1 }}>
+            {pageLabel[active] || "Admin"}
           </Typography>
 
-          <Chip
-            icon={<MdWorkspacePremium style={{ color: "#fff" }} />}
-            label="Premium 1"
-            size="small"
-            className="p1-premium-badge"
-            sx={{ mr: 1 }}
-          />
+          <Chip label="PREMIUM" size="small" className="p1-premium-chip" sx={{ mr: 0.5 }} />
 
-          {/* Generate portfolio button */}
-          <Button
-            variant="contained"
-            size="small"
-            className="p1-generate-btn"
-            onClick={() => window.open(`/${username}/premium1`, "_blank")}
-            sx={{ borderRadius: 999, fontWeight: 950, textTransform: "none" }}
-          >
-            View Portfolio
-          </Button>
+          <Tooltip title="View Portfolio">
+            <IconButton onClick={() => window.open("/", "_blank")} className={`p1-bar-btn ${isDark ? "" : "p1-bar-btn-light"}`}>
+              <MdVisibility />
+            </IconButton>
+          </Tooltip>
 
-          <Tooltip title="Refresh">
-            <IconButton color="inherit" onClick={fetchAll}>
+          <Tooltip title={isDark ? "Light Mode" : "Dark Mode"}>
+            <IconButton onClick={toggleTheme} className={`p1-bar-btn ${isDark ? "" : "p1-bar-btn-light"}`}>
+              {isDark ? <MdLightMode /> : <MdDarkMode />}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Reload">
+            <IconButton onClick={fetchAllAdmin} className={`p1-bar-btn ${isDark ? "" : "p1-bar-btn-light"}`}>
               <MdRefresh />
             </IconButton>
           </Tooltip>
         </Toolbar>
       </AppBar>
 
-      {/* Drawer */}
-      <Box component="nav" sx={{ width: { md: DRAWER_W }, flexShrink: { md: 0 } }}>
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          PaperProps={{ className: "p1-sidebar" }}
-          sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: DRAWER_W } }}
-        >
-          {sidebar}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          open
-          PaperProps={{ className: "p1-sidebar" }}
-          sx={{ display: { xs: "none", md: "block" }, "& .MuiDrawer-paper": { width: DRAWER_W, boxSizing: "border-box" } }}
-        >
-          {sidebar}
-        </Drawer>
-      </Box>
+<Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, zIndex: 2 }}>
+  <Drawer
+    variant="temporary"
+    open={mobileOpen}
+    onClose={handleDrawerToggle}
+    ModalProps={{ keepMounted: true }}
+    sx={{
+      display: { xs: "block", md: "none" },
+      "& .MuiDrawer-paper": {
+        width: drawerWidth,
+        borderRight: "none",
+      },
+    }}
+    PaperProps={{ className: `adm-drawer ${isDark ? "" : "adm-drawer-light"}` }}
+  >
+    {drawer}
+  </Drawer>
 
-      {/* Main */}
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${DRAWER_W}px)` }, pb: 6 }}
-      >
-        <Toolbar />
-        <Container maxWidth="xl" sx={{ py: 3 }}>
+  <Drawer
+    variant="permanent"
+    open
+    sx={{
+      display: { xs: "none", md: "block" },
+      "& .MuiDrawer-paper": {
+        width: drawerWidth,
+      },
+    }}
+    PaperProps={{ className: `adm-drawer ${isDark ? "" : "adm-drawer-light"}` }}
+  >
+    {drawer}
+  </Drawer>
+</Box>
 
-          {ok  && <Alert severity="success" sx={{ mb: 2, borderRadius: 3 }}>{ok}</Alert>}
-          {err && <Alert severity="error"   sx={{ mb: 2, borderRadius: 3 }}>{err}</Alert>}
+<Box
+  component="main"
+  className="adm-main"
+  sx={{
+    flexGrow: 1,
+    minWidth: 0,
+    pb: 6,
+    width: { md: `calc(100% - ${drawerWidth}px)` },
+  }}
+>
+  <Toolbar />
 
-          {/* Version banner */}
-          <div className="p1-version-banner">
-            <MdWorkspacePremium style={{ color: "#a78bfa", fontSize: 22 }} />
-            <Box>
-              <Typography sx={{ fontWeight: 900, color: "#c4b5fd", fontSize: "0.9rem" }}>
-                Premium 1 Dashboard
-              </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "rgba(196,181,253,0.7)" }}>
-                Your data is shared with the free version. Only the layout changes.
-              </Typography>
-            </Box>
-          </div>
+  <Container maxWidth="xl" sx={{ py: 3 }}>
+          {ok && <Alert severity="success" className="p1-alert-ok">{ok}</Alert>}
+          {err && <Alert severity="error" className="p1-alert-err">{err}</Alert>}
 
-          {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-              <CircularProgress sx={{ color: VIOLET }} />
-            </Box>
-          )}
+          <Box className="p1-page-header p1-page-enter">
+            <Typography className={isDark ? "p1-page-title" : "p1-page-title p1-page-title-light"}>
+              {pageLabel[active] || "Admin"}
+            </Typography>
+            <Typography className="p1-page-subtitle">
+              {active === "dashboard" && "Portfolio overview — all data synced from DB"}
+              {active === "about" && "Edit your public profile — saved directly to the database"}
+              {active === "skills" && "Manage your tech stack with add / edit / delete"}
+              {active === "projects" && "Add or edit featured projects shown on the viewer"}
+              {active === "achievements" && "Certifications, awards and recognitions"}
+              {active === "languages" && "Programming language proficiency and years of experience"}
+              {active === "education" && "Academic background and qualifications"}
+              {active === "experience" && "Career and internship timeline"}
+              {active === "contact" && "Social links and contact information shown in viewer"}
+              {active === "resume" && "Upload, preview, and set the primary resume for download"}
+            </Typography>
+          </Box>
 
-          {/* ─── DASHBOARD ─── */}
-          {!loading && active === "dashboard" && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard title="Projects"     value={projects.length}     icon={<MdWork />} />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard title="Achievements" value={achievements.length} icon={<MdEmojiEvents />} color="#ec4899" />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard title="Education"    value={education.length}    icon={<MdSchool />}     color="#06b6d4" />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard title="Experience"   value={experience.length}   icon={<MdBadge />}      color="#f59e0b" />
-              </Grid>
-            </Grid>
-          )}
-
-          {/* ─── ABOUT ─── */}
-          {!loading && active === "about" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>About Me</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(updateProfile, profile, "Profile")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              <Grid container spacing={2}>
-                {["name", "title", "tagline", "location", "emailPublic", "initials"].map((f) => (
-                  <Grid item xs={12} sm={6} key={f}>
-                    <SmallField
-                      label={f.charAt(0).toUpperCase() + f.slice(1)}
-                      value={profile[f] || ""}
-                      onChange={(e) => setProfile((p) => ({ ...p, [f]: e.target.value }))}
-                    />
-                  </Grid>
-                ))}
-                <Grid item xs={12}>
-                  <SmallField
-                    label="About"
-                    value={profile.about || ""}
-                    onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value }))}
-                    multiline
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-          )}
-
-          {/* ─── SKILLS ─── */}
-          {!loading && active === "skills" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Skills</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(updateSkills, skills, "Skills")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              <Grid container spacing={2}>
-                {["frontend", "backend", "tools"].map((f) => (
-                  <Grid item xs={12} sm={4} key={f}>
-                    <SmallField
-                      label={f.charAt(0).toUpperCase() + f.slice(1)}
-                      value={Array.isArray(skills[f]) ? skills[f].join(", ") : (skills[f] || "")}
-                      onChange={(e) => setSkills((s) => ({ ...s, [f]: e.target.value }))}
-                    />
-                  </Grid>
+          {/* ── DASHBOARD ── */}
+          {active === "dashboard" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Overview" subtitle="Quick counts — DB-backed"
+                right={<OBtn startIcon={<MdRefresh />} onClick={fetchAllAdmin}>Reload</OBtn>}
+              />
+              <Grid container spacing={2.5}>
+                {[
+                  { title: "Projects", value: projects.length, subtitle: "Featured + all", icon: <MdWork />, trendLabel: "DB" },
+                  { title: "Skills", value: String(skills.frontend || "").split(",").filter(Boolean).length, subtitle: "Frontend tags", icon: <MdBuild />, trendLabel: "DB" },
+                  { title: "Achievements", value: achievements.length, subtitle: "Awards + certs", icon: <MdEmojiEvents />, trendLabel: "DB" },
+                  { title: "Resumes", value: resumes.length, subtitle: "Uploaded", icon: <MdDescription />, trendLabel: "DB" },
+                ].map((s, i) => (
+                  <Grid key={i} item xs={12} sm={6} md={3}><StatCard {...s} /></Grid>
                 ))}
               </Grid>
-            </Paper>
+
+              {projects.length > 0 && (
+                <Box sx={{ mt: 3.5 }}>
+                  <Typography sx={{ fontWeight: 800, mb: 1.5, opacity: 0.45, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    Recent Projects
+                  </Typography>
+                  <TableWrap>
+                    <Table size="small">
+                      <THead cols={[{ label: "Title" }, { label: "Tech" }, { label: "Featured", sx: { width: 100 } }]} />
+                      <TableBody>
+                        {projects.slice(0, 5).map((p) => (
+                          <TRow key={p.id}>
+                            <TC bold>{p.title}</TC>
+                            <TC>{p.tech}</TC>
+                            <TC><Chip size="small" label={p.featured ? "YES" : "NO"} className={p.featured ? "p1-chip-yes" : "p1-chip-no"} /></TC>
+                          </TRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableWrap>
+                </Box>
+              )}
+            </Box>
           )}
 
-          {/* ─── PROJECTS ─── */}
-          {!loading && active === "projects" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Projects</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdAdd />}
-                  onClick={async () => {
-                    try {
-                      await addProject(username, { title: "New Project", description: "", tech: "", status: "In Progress", featured: false });
-                      flash("Project added");
-                      fetchAll();
-                    } catch { flash("Failed", true); }
-                  }}
-                >
-                  Add
-                </Button>
-              </Stack>
-              <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <Table size="small" className="p1-table" sx={{ minWidth: 480 }}>
-                  <TableHead>
-                    <TableRow className="p1-table-head">
-                      <TableCell>#</TableCell>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Featured</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {projects.map((p, i) => (
-                      <TableRow key={p.id} className="p1-table-row" hover>
-                        <TableCell sx={{ color: "rgba(255,255,255,0.5)" }}>{i + 1}</TableCell>
-                        <TableCell sx={{ color: "#c4b5fd", fontWeight: 700 }}>{p.title}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={p.status || "—"}
-                            size="small"
-                            sx={{ bgcolor: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.3)" }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {p.featured ? <Chip label="Featured" size="small" sx={{ bgcolor: "rgba(245,158,11,0.15)", color: "#f59e0b" }} /> : "—"}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              sx={{ color: "#f87171" }}
-                              onClick={async () => {
-                                try { await deleteProject(username, p.id); flash("Deleted"); fetchAll(); }
-                                catch { flash("Delete failed", true); }
-                              }}
-                            >
-                              <MdDelete />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
+          {/* ── ABOUT ── */}
+          {active === "about" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Profile Details" subtitle="Shown publicly on the portfolio viewer"
+                right={<PBtn startIcon={<MdSave />} onClick={saveProfileNow}>Save Profile</PBtn>}
+              />
+              <Paper
+                elevation={0}
+                className={`p1-glass p1-neon-top ${isDark ? "" : "p1-glass-light"}`}
+                sx={{ p: { xs: 2, md: 3 }, width: "100%", boxSizing: "border-box" }}
+              >
+                <Box sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", md: "row" },
+                  gap: 2.5,
+                  width: "100%",
+                  minHeight: { md: 360 },
+                }}>
+                  <Box sx={{
+                    width: { xs: "100%", md: "320px" },
+                    flexShrink: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                  }}>
+                    {[["Name", "name"], ["Title", "title"], ["Tagline", "tagline"], ["Location", "location"], ["Public Email", "emailPublic"], ["Initials", "initials"]].map(([label, key]) => (
+                      <SmallTextField
+                        key={key}
+                        label={label}
+                        value={profile[key] || ""}
+                        onChange={(e) => setProfile((p) => ({ ...p, [key]: e.target.value }))}
+                      />
                     ))}
-                    {projects.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} sx={{ color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
-                          No projects yet.
-                        </TableCell>
-                      </TableRow>
-                    )}
+                  </Box>
+
+                  <Box sx={{
+                    flex: { xs: "unset", md: 1 },
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}>
+                    <TextField
+                      label="About"
+                      value={profile.about || ""}
+                      onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value }))}
+                      fullWidth
+                      multiline
+                      variant="outlined"
+                      size="small"
+                      minRows={isMobile ? 6 : undefined}
+                      InputLabelProps={{ shrink: Boolean((profile.about || "").length) }}
+                      sx={{
+                        flex: { xs: "unset", md: 1 },
+                        display: "flex",
+                        flexDirection: "column",
+                        height: { xs: "auto", md: "100%" },
+                        "& .MuiOutlinedInput-root": {
+                          flex: { xs: "unset", md: 1 },
+                          height: { xs: "auto", md: "100%" },
+                          alignItems: "flex-start",
+                          borderRadius: "14px",
+                          background: isDark ? "rgba(45,212,191,0.03)" : "rgba(45,212,191,0.04)",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: isDark ? "rgba(45,212,191,0.18)" : "rgba(0,0,0,0.12)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#2dd4bf" },
+                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#2dd4bf", borderWidth: "1.5px" },
+                        },
+                        "& .MuiInputBase-root": { flex: { xs: "unset", md: 1 }, height: { xs: "auto", md: "100%" }, alignItems: "flex-start" },
+                        "& .MuiInputBase-inputMultiline": {
+                          height: { xs: "auto !important", md: "100% !important" },
+                          overflowY: { xs: "visible", md: "auto !important" },
+                          resize: "none",
+                          padding: "12px 14px",
+                          fontSize: "14px",
+                          lineHeight: 1.75,
+                          boxSizing: "border-box",
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "break-word",
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                          "&::-webkit-scrollbar": { display: "none" },
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": { color: "#2dd4bf" },
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Paper>
+            </Box>
+          )}
+
+          {/* ── SKILLS ── */}
+          {active === "skills" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Skills Manager" subtitle="Add → Edit → Delete → Save to DB"
+                right={<PBtn startIcon={<MdSave />} onClick={saveSkillsNow}>Save Skills</PBtn>}
+              />
+              <Paper elevation={0} className={`p1-glass ${isDark ? "" : "p1-glass-light"}`} sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5 }}>
+                <Grid container spacing={2} alignItems="flex-end">
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel>Category</InputLabel>
+                      <Select value={skillCategory} label="Category" onChange={(e) => setSkillCategory(e.target.value)}>
+                        <MenuItem value="frontend">Frontend</MenuItem>
+                        <MenuItem value="backend">Backend</MenuItem>
+                        <MenuItem value="database">Database</MenuItem>
+                        <MenuItem value="tools">Tools</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <SmallTextField label="Skill name" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Button fullWidth className="p1-btn-primary" startIcon={<MdAdd />} onClick={addSkill} sx={{ height: 42 }}>Add</Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Category" }, { label: "Skill" }, { label: "Action", sx: { width: 120 } }]} />
+                  <TableBody>
+                    {skillTable.length === 0 && <TRow><TC colSpan={3} sx={{ opacity: 0.5 }}>No skills added</TC></TRow>}
+                    {skillTable.map((s, i) => (
+                      <TRow key={i}>
+                        <TC bold sx={{ textTransform: "capitalize" }}>{s.category}</TC>
+                        <TC>
+                          {editIndex === i
+                            ? <SmallTextField value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+                            : s.name}
+                        </TC>
+                        <TC>
+                          <Stack direction="row" spacing={0.8}>
+                            {editIndex === i ? (
+                              <>
+                                <IconButton size="small" sx={{ color: "#4ade80" }} onClick={() => saveEditSkill(i)}><MdSave /></IconButton>
+                                <IconButton size="small" sx={{ color: "#f97316" }} onClick={() => setEditIndex(null)}><MdClose /></IconButton>
+                              </>
+                            ) : <IconEdit onClick={() => startEditSkill(i)} />}
+                            <IconDel onClick={() => deleteSkill(i)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
+                    ))}
                   </TableBody>
                 </Table>
-              </Box>
-            </Paper>
+              </TableWrap>
+            </Box>
           )}
 
-          {/* ─── ACHIEVEMENTS ─── */}
-          {!loading && active === "achievements" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Achievements</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(saveAchievements, achievements, "Achievements")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              {achievements.map((a, i) => (
-                <Paper
-                  key={i}
-                  sx={{
-                    p: 2, mb: 1.5, borderRadius: 3,
-                    background: "rgba(139,92,246,0.08)",
-                    border: "1px solid rgba(139,92,246,0.18)",
-                  }}
-                >
-                  <Grid container spacing={1.5} alignItems="flex-start">
-                    {["title", "issuer", "date", "description"].map((f) => (
-                      <Grid item xs={12} sm={f === "description" ? 12 : 4} key={f}>
-                        <SmallField
-                          label={f.charAt(0).toUpperCase() + f.slice(1)}
-                          value={a[f] || ""}
-                          multiline={f === "description"}
-                          onChange={(e) => {
-                            const updated = [...achievements];
-                            updated[i] = { ...updated[i], [f]: e.target.value };
-                            setAchievements(updated);
-                          }}
-                        />
-                      </Grid>
+          {/* ── PROJECTS ── */}
+          {active === "projects" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Projects Manager" subtitle="Add / edit / delete projects shown on Viewer"
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OBtn startIcon={<MdAdd />} onClick={openAddProject}>Add Project</OBtn>
+                  </Stack>
+                }
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Title" }, { label: "Tech" }, { label: "Featured", sx: { width: 100 } }, { label: "Actions", sx: { width: 120 } }]} />
+                  <TableBody>
+                    {projects.map((p) => (
+                      <TRow key={p.id}>
+                        <TC bold>{p.title}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{p.tech}</TC>
+                        <TC><Chip size="small" label={p.featured ? "YES" : "NO"} className={p.featured ? "p1-chip-yes" : "p1-chip-no"} /></TC>
+                        <TC>
+                          <Stack direction="row" spacing={0.8}>
+                            <IconEdit onClick={() => openEditProject(p)} />
+                            <IconDel onClick={() => askDeleteProject(p)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
                     ))}
-                    <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#f87171" }}
-                        onClick={() => setAchievements((prev) => prev.filter((_, idx) => idx !== i))}
-                      >
-                        <MdDelete />
-                      </IconButton>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              ))}
-              <Button
-                startIcon={<MdAdd />}
-                size="small"
-                sx={{ color: "#a78bfa", mt: 1 }}
-                onClick={() => setAchievements((prev) => [...prev, { title: "", issuer: "", date: "", description: "" }])}
-              >
-                Add Achievement
-              </Button>
-            </Paper>
+                    {projects.length === 0 && <TRow><TC colSpan={4} sx={{ opacity: 0.55 }}>No projects yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <ProjectEditorDialog open={projDlgOpen} mode={projDlgMode} initial={projDlgInitial} onClose={() => setProjDlgOpen(false)} onSave={onSaveProjectDialog} />
+            </Box>
           )}
 
-          {/* ─── EDUCATION ─── */}
-          {!loading && active === "education" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Education</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(updateEducation, education, "Education")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              {education.map((e, i) => (
-                <Paper
-                  key={i}
-                  sx={{ p: 2, mb: 1.5, borderRadius: 3, background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.18)" }}
-                >
-                  <Grid container spacing={1.5}>
-                    {["degree", "institution", "year", "details"].map((f) => (
-                      <Grid item xs={12} sm={f === "details" ? 12 : 4} key={f}>
-                        <SmallField
-                          label={f.charAt(0).toUpperCase() + f.slice(1)}
-                          value={e[f] || ""}
-                          multiline={f === "details"}
-                          onChange={(ev) => {
-                            const updated = [...education];
-                            updated[i] = { ...updated[i], [f]: ev.target.value };
-                            setEducation(updated);
-                          }}
-                        />
-                      </Grid>
+          {/* ── ACHIEVEMENTS ── */}
+          {active === "achievements" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Achievements" subtitle="Add / edit / delete then Save to DB. Upload certificate per achievement after saving."
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OBtn startIcon={<MdAdd />} onClick={openAchAdd}>Add</OBtn>
+                    <PBtn startIcon={<MdSave />} onClick={persistAchievements}>Save to DB</PBtn>
+                  </Stack>
+                }
+              />
+              <TableWrap>
+                <Table>
+                  <THead
+                    cols={[
+                      { label: "Title" },
+                      { label: "Issuer" },
+                      { label: "Year" },
+                      { label: "Certificate", sx: { width: 270, minWidth: 270, maxWidth: 270 } },
+                      { label: "Actions", sx: { width: 120, minWidth: 120, maxWidth: 120, whiteSpace: "nowrap" } },
+                    ]}
+                  />
+                  <TableBody>
+                    {achievements.map((a) => (
+                      <TRow key={a.id || a.title}>
+                        <TC bold>{a.title}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{a.issuer}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{a.year}</TC>
+                        <TC sx={{ verticalAlign: "middle", width: 270, minWidth: 270, maxWidth: 270, whiteSpace: "nowrap" }}>
+                          {a.certificateFileName ? (
+                            <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="nowrap" sx={{ width: "100%", minWidth: 0 }}>
+                              <Chip
+                                size="small"
+                                label={a.certificateFileName.length > 18 ? a.certificateFileName.slice(0, 18) + "…" : a.certificateFileName}
+                                className="p1-chip-yes"
+                                sx={{ width: 150, minWidth: 150, maxWidth: 150, justifyContent: "flex-start", "& .MuiChip-label": { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" } }}
+                              />
+                              <Tooltip title="View Certificate">
+                                <IconButton size="small" className={`p1-icon-btn ${isDark ? "" : "p1-icon-btn-light"}`} onClick={() => onPreviewCertificate(a)}>
+                                  <MdVisibility />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Certificate">
+                                <IconButton size="small" className="p1-icon-btn-err" onClick={() => onDeleteCertificate(a.id)}>
+                                  <MdDelete />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          ) : (
+                            <Button
+                              component="label"
+                              size="small"
+                              className="p1-btn-outlined"
+                              startIcon={certUploading === a.id ? null : <MdUpload />}
+                              disabled={certUploading === a.id || !a.id || a.id > 1e12}
+                              sx={{ width: 150, minWidth: 150, maxWidth: 150 }}
+                            >
+                              {certUploading === a.id ? "Uploading…" : "Upload"}
+                              <input
+                                hidden
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/jpg,image/png"
+                                onChange={(e) => e.target.files?.[0] && onUploadCertificate(a.id, e.target.files[0])}
+                              />
+                            </Button>
+                          )}
+                        </TC>
+                        <TC sx={{ whiteSpace: "nowrap", minWidth: 100 }}>
+                          <Stack direction="row" spacing={0.8} alignItems="center" justifyContent="center" flexWrap="nowrap" sx={{ width: "100%" }}>
+                            <IconEdit onClick={() => openAchEdit(a)} />
+                            <IconDel onClick={() => deleteAchLocal(a.id)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
                     ))}
-                    <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                      <IconButton size="small" sx={{ color: "#f87171" }} onClick={() => setEducation((p) => p.filter((_, idx) => idx !== i))}>
-                        <MdDelete />
-                      </IconButton>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              ))}
-              <Button
-                startIcon={<MdAdd />}
-                size="small"
-                sx={{ color: "#a78bfa", mt: 1 }}
-                onClick={() => setEducation((p) => [...p, { degree: "", institution: "", year: "", details: "" }])}
+                    {achievements.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No achievements yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <Paper elevation={0} className={`p1-glass ${isDark ? "" : "p1-glass-light"}`} sx={{ p: 1.5, mt: 1.5, borderRadius: "12px" }}>
+                <Typography variant="caption" sx={{ opacity: 0.55 }}>
+                  💡 Click "Save to DB" first before uploading a certificate. The Upload button is disabled for unsaved achievements.
+                </Typography>
+              </Paper>
+              <SimpleItemDialog open={achDlgOpen} title={achEditingId ? "Edit Achievement" : "Add Achievement"} onClose={() => setAchDlgOpen(false)} onSave={saveAchLocal}>
+                <Grid container spacing={2}>
+                  {[["Title", "title"], ["Issuer", "issuer"], ["Year", "year"], ["Link", "link"]].map(([label, key]) => (
+                    <Grid key={key} item xs={12} md={6}><SmallTextField label={label} value={achForm[key]} onChange={(e) => setAchForm((p) => ({ ...p, [key]: e.target.value }))} /></Grid>
+                  ))}
+                </Grid>
+              </SimpleItemDialog>
+              {/* Certificate Preview Dialog */}
+              <Dialog
+                open={certPreviewOpen}
+                onClose={closeCertPreview}
+                fullWidth
+                maxWidth="md"
+                className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}
               >
-                Add Education
-              </Button>
-            </Paper>
+                <DialogTitle className="p1-dialog-title" sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, py: 1.5 }}>
+                  {certPreviewTitle}
+                </DialogTitle>
+                <DialogContent sx={{ height: { xs: 480, md: 580 }, p: 0, overflow: "hidden", bgcolor: "black" }}>
+                  {certPreviewLoading ? (
+                    <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Loading preview…</Typography></Box>
+                  ) : certPreviewIsImage && certPreviewSrc ? (
+                    <Box sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <img src={certPreviewSrc} alt={certPreviewTitle} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+                    </Box>
+                  ) : !certPreviewIsImage && certPreviewSrc ? (
+                    <Box sx={{ width: "100%", height: "100%", overflow: "hidden" }}>
+                      <iframe
+                        title="Certificate Preview"
+                        src={
+                          /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+                            ? `https://docs.google.com/viewer?url=${encodeURIComponent(
+                                `${(import.meta.env.VITE_API_URL || "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api")}/portfolio/achievements/${certPreviewAchId}/certificate`
+                              )}&embedded=true`
+                            : `${certPreviewSrc}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+                        }
+                        style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                      />
+                    </Box>
+                  ) : (
+                    <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Preview not available.</Typography></Box>
+                  )}
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                  <Button onClick={closeCertPreview} size="small" className="p1-btn-outlined" startIcon={<MdClose />}>Close</Button>
+                </DialogActions>
+              </Dialog>
+            </Box>
           )}
 
-          {/* ─── EXPERIENCE ─── */}
-          {!loading && active === "experience" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Experience</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(updateExperience, experience, "Experience")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              {experience.map((e, i) => (
-                <Paper
-                  key={i}
-                  sx={{ p: 2, mb: 1.5, borderRadius: 3, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)" }}
-                >
-                  <Grid container spacing={1.5}>
-                    {["role", "company", "start", "end", "description"].map((f) => (
-                      <Grid item xs={12} sm={f === "description" ? 12 : 6} key={f}>
-                        <SmallField
-                          label={f.charAt(0).toUpperCase() + f.slice(1)}
-                          value={e[f] || ""}
-                          multiline={f === "description"}
-                          onChange={(ev) => {
-                            const updated = [...experience];
-                            updated[i] = { ...updated[i], [f]: ev.target.value };
-                            setExperience(updated);
-                          }}
-                        />
-                      </Grid>
+          {/* ── LANGUAGES ── */}
+          {active === "languages" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Programming Languages" subtitle="Language proficiency and experience"
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OBtn startIcon={<MdAdd />} onClick={openLangAdd}>Add</OBtn>
+                    <PBtn startIcon={<MdSave />} onClick={persistLanguages}>Save to DB</PBtn>
+                  </Stack>
+                }
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Language" }, { label: "Level" }, { label: "Years" }, { label: "Notes" }, { label: "Actions", sx: { width: 90 } }]} />
+                  <TableBody>
+                    {languages.map((l) => (
+                      <TRow key={l.id || l.language}>
+                        <TC bold>{l.language || l.name}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.level}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.years}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.notes}</TC>
+                        <TC>
+                          <Stack direction="row" spacing={0.8}>
+                            <IconEdit onClick={() => openLangEdit(l)} />
+                            <IconDel onClick={() => deleteLangLocal(l.id)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
                     ))}
-                    <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                      <IconButton size="small" sx={{ color: "#f87171" }} onClick={() => setExperience((p) => p.filter((_, idx) => idx !== i))}>
-                        <MdDelete />
-                      </IconButton>
-                    </Grid>
+                    {languages.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No languages yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={langDlgOpen} title={langEditingId ? "Edit Language" : "Add Language"} onClose={() => setLangDlgOpen(false)} onSave={saveLangLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><SmallTextField label="Language" value={langForm.language} onChange={(e) => setLangForm((p) => ({ ...p, language: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel shrink>Level</InputLabel>
+                      <Select value={langForm.level} label="Level" onChange={(e) => setLangForm((p) => ({ ...p, level: e.target.value }))} notched>
+                        {["Beginner", "Intermediate", "Advanced"].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                      </Select>
+                    </FormControl>
                   </Grid>
-                </Paper>
-              ))}
-              <Button
-                startIcon={<MdAdd />}
-                size="small"
-                sx={{ color: "#a78bfa", mt: 1 }}
-                onClick={() => setExperience((p) => [...p, { role: "", company: "", start: "", end: "", description: "" }])}
-              >
-                Add Experience
-              </Button>
-            </Paper>
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel shrink>Years</InputLabel>
+                      <Select value={langForm.years} label="Years" onChange={(e) => setLangForm((p) => ({ ...p, years: Number(e.target.value) }))} notched>
+                        {Array.from({ length: 10 }).map((_, i) => <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}><SmallTextField label="Notes (optional)" value={langForm.notes} onChange={(e) => setLangForm((p) => ({ ...p, notes: e.target.value }))} /></Grid>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
           )}
 
-          {/* ─── LANGUAGES ─── */}
-          {!loading && active === "languages" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Languages Experience</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(saveLanguageExperience, languages, "Languages")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              {languages.map((l, i) => (
-                <Stack key={i} direction="row" spacing={1.5} sx={{ mb: 1.5 }} alignItems="center">
-                  <SmallField label="Language" value={l.language || ""} onChange={(e) => {
-                    const u = [...languages]; u[i] = { ...u[i], language: e.target.value }; setLanguages(u);
-                  }} />
-                  <SmallField label="Years / Level" value={l.experience || ""} onChange={(e) => {
-                    const u = [...languages]; u[i] = { ...u[i], experience: e.target.value }; setLanguages(u);
-                  }} />
-                  <IconButton size="small" sx={{ color: "#f87171" }} onClick={() => setLanguages((p) => p.filter((_, idx) => idx !== i))}>
-                    <MdDelete />
-                  </IconButton>
-                </Stack>
-              ))}
-              <Button
-                startIcon={<MdAdd />}
-                size="small"
-                sx={{ color: "#a78bfa" }}
-                onClick={() => setLanguages((p) => [...p, { language: "", experience: "" }])}
-              >
-                Add Language
-              </Button>
-            </Paper>
+          {/* ── EDUCATION ── */}
+          {active === "education" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Education" subtitle="Academic background and qualifications"
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OBtn startIcon={<MdAdd />} onClick={openEduAdd}>Add</OBtn>
+                    <PBtn startIcon={<MdSave />} onClick={persistEducation}>Save to DB</PBtn>
+                  </Stack>
+                }
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Degree" }, { label: "Institution" }, { label: "Year" }, { label: "Actions", sx: { width: 90 } }]} />
+                  <TableBody>
+                    {education.map((e) => (
+                      <TRow key={e.id || e.degree}>
+                        <TC bold>{e.degree}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.institution}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.year}</TC>
+                        <TC>
+                          <Stack direction="row" spacing={0.8}>
+                            <IconEdit onClick={() => openEduEdit(e)} />
+                            <IconDel onClick={() => deleteEduLocal(e.id)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
+                    ))}
+                    {education.length === 0 && <TRow><TC colSpan={4} sx={{ opacity: 0.55 }}>No education yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={eduDlgOpen} title={eduEditingId ? "Edit Education" : "Add Education"} onClose={() => setEduDlgOpen(false)} onSave={saveEduLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><SmallTextField label="Degree" value={eduForm.degree} onChange={(e) => setEduForm((p) => ({ ...p, degree: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Institution" value={eduForm.institution} onChange={(e) => setEduForm((p) => ({ ...p, institution: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Year" value={eduForm.year} onChange={(e) => setEduForm((p) => ({ ...p, year: e.target.value }))} /></Grid>
+                  <Grid item xs={12}><SmallTextField label="Details (optional)" value={eduForm.details} onChange={(e) => setEduForm((p) => ({ ...p, details: e.target.value }))} multiline minRows={3} /></Grid>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
           )}
 
-          {/* ─── CONTACT ─── */}
-          {!loading && active === "contact" && (
-            <Paper className="p1-section-paper" sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 900, color: "#c4b5fd" }}>Contact / Social Links</Typography>
-                <Button
-                  className="p1-save-btn"
-                  variant="contained"
-                  size="small"
-                  startIcon={<MdSave />}
-                  onClick={() => save(updateSocials, socials, "Contact")}
-                >
-                  Save
-                </Button>
-              </Stack>
-              <Grid container spacing={2}>
-                {["email", "phone", "github", "linkedin", "website"].map((f) => (
-                  <Grid item xs={12} sm={6} key={f}>
-                    <SmallField
-                      label={f.charAt(0).toUpperCase() + f.slice(1)}
-                      value={socials[f] || ""}
-                      onChange={(e) => setSocials((s) => ({ ...s, [f]: e.target.value }))}
+          {/* ── EXPERIENCE ── */}
+          {active === "experience" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Experience" subtitle="Career and internship timeline"
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OBtn startIcon={<MdAdd />} onClick={openExpAdd}>Add</OBtn>
+                    <PBtn startIcon={<MdSave />} onClick={persistExperience}>Save to DB</PBtn>
+                  </Stack>
+                }
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Company" }, { label: "Role" }, { label: "Start" }, { label: "End" }, { label: "Actions", sx: { width: 90 } }]} />
+                  <TableBody>
+                    {experience.map((e) => (
+                      <TRow key={e.id || e.company}>
+                        <TC bold>{e.company}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.role}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.start}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.end}</TC>
+                        <TC>
+                          <Stack direction="row" spacing={0.8}>
+                            <IconEdit onClick={() => openExpEdit(e)} />
+                            <IconDel onClick={() => deleteExpLocal(e.id)} />
+                          </Stack>
+                        </TC>
+                      </TRow>
+                    ))}
+                    {experience.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No experience yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={expDlgOpen} title={expEditingId ? "Edit Experience" : "Add Experience"} onClose={() => setExpDlgOpen(false)} onSave={saveExpLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><SmallTextField label="Company" value={expForm.company} onChange={(e) => setExpForm((p) => ({ ...p, company: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Role" value={expForm.role} onChange={(e) => setExpForm((p) => ({ ...p, role: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Start" value={expForm.start} onChange={(e) => setExpForm((p) => ({ ...p, start: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="End" value={expForm.end} onChange={(e) => setExpForm((p) => ({ ...p, end: e.target.value }))} /></Grid>
+                  <Grid item xs={12} sx={{ width: "100%" }}>
+                    <SmallTextField
+                      label="Description" value={expForm.description || ""} onChange={(e) => setExpForm((p) => ({ ...p, description: e.target.value }))}
+                      fullWidth multiline InputProps={{ inputComponent: TextareaAutosize, inputProps: { minRows: 2 } }}
+                      sx={{ width: "100%", "& .MuiInputBase-root": { width: "100%", alignItems: "flex-start" }, "& textarea": { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "break-word" } }}
                     />
                   </Grid>
-                ))}
-              </Grid>
-            </Paper>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
           )}
+
+          {/* ── CONTACT ── */}
+          {active === "contact" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Contact / Links" subtitle="Shown in the Viewer footer and contact section"
+                right={<PBtn startIcon={<MdSave />} onClick={saveSocialsNow}>Save</PBtn>}
+              />
+              <Paper elevation={0} className={`p1-glass p1-neon-top ${isDark ? "" : "p1-glass-light"}`} sx={{ p: { xs: 2, md: 3 } }}>
+                <Grid container spacing={2.5}>
+                  {[["GitHub", "github"], ["LinkedIn", "linkedin"], ["Email", "email"], ["Phone", "phone"]].map(([label, key]) => (
+                    <Grid key={key} item xs={12} md={6}><SmallTextField label={label} value={socials[key] || ""} onChange={(e) => setSocials((p) => ({ ...p, [key]: e.target.value }))} /></Grid>
+                  ))}
+                  <Grid item xs={12}><SmallTextField label="Website" value={socials.website || ""} onChange={(e) => setSocials((p) => ({ ...p, website: e.target.value }))} /></Grid>
+                </Grid>
+              </Paper>
+            </Box>
+          )}
+
+          {/* ── RESUME ── */}
+          {active === "resume" && (
+            <Box className="p1-page-enter">
+              <SectionHeader
+                title="Resume Manager" subtitle="Upload, preview and set primary"
+                right={
+                  <Button
+                    component="label"
+                    className="p1-btn-primary"
+                    size="small"
+                    startIcon={resumeUploading ? null : <MdUpload />}
+                    fullWidth={isMobile}
+                    disabled={resumeUploading}
+                  >
+                    {resumeUploading ? "Uploading…" : "Upload Resume"}
+                    <input hidden type="file" accept="application/pdf" onChange={(e) => e.target.files?.[0] && onUploadResume(e.target.files[0])} />
+                  </Button>
+                }
+              />
+
+              {resumeUploading && (
+                <Box sx={{ mb: 2.5 }}>
+                  <Paper elevation={0} className={`p1-glass ${isDark ? "" : "p1-glass-light"}`} sx={{ p: 2, borderRadius: "16px" }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Box sx={{
+                          width: 36, height: 36, borderRadius: "10px",
+                          background: "linear-gradient(135deg,rgba(45,212,191,0.18),rgba(13,148,136,0.10))",
+                          border: "1px solid rgba(45,212,191,0.28)",
+                          display: "grid", placeItems: "center", flexShrink: 0,
+                        }}>
+                          <MdUpload style={{ color: "#2dd4bf", fontSize: "1.1rem" }} />
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: "0.875rem", opacity: 0.90, mb: 0.3 }}>
+                            Uploading {resumeUploadedName}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.75rem", opacity: 0.50 }}>Please wait…</Typography>
+                        </Box>
+                      </Stack>
+                      <LinearProgress
+                        sx={{
+                          borderRadius: "999px",
+                          height: 5,
+                          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)",
+                          "& .MuiLinearProgress-bar": {
+                            background: "linear-gradient(90deg,#2dd4bf,#0d9488)",
+                            borderRadius: "999px",
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </Paper>
+                </Box>
+              )}
+
+              <Paper elevation={0} className={`p1-glass p1-neon-top ${isDark ? "" : "p1-glass-light"}`} sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+                  <Typography sx={{ fontWeight: 700, opacity: 0.60, fontSize: "0.875rem" }}>Current Active Resume</Typography>
+                  <OBtn startIcon={<MdVisibility />} onClick={previewCurrentResumeInline}>Preview Current</OBtn>
+                </Stack>
+              </Paper>
+
+              <TableWrap>
+                <Table size="small">
+                  <THead cols={[
+                    { label: "S.No", sx: { width: 50 } },
+                    { label: "File" },
+                    { label: "Status", sx: { width: 120 } },
+                    { label: "Uploaded", sx: { width: 140 } },
+                    { label: "Actions", sx: { width: 130, textAlign: "right" } },
+                  ]} />
+                  <TableBody>
+                    {[...resumes].sort((a, b) => (b.primary === true ? 1 : 0) - (a.primary === true ? 1 : 0)).map((r, idx) => {
+                      const isPrimary = Boolean(r.primary);
+                      return (
+                        <TRow key={r.id || idx}>
+                          <TC sx={{ opacity: 0.55, fontWeight: 600 }}>{idx + 1}</TC>
+                          <TC bold sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.fileName || "Resume.pdf"}</TC>
+                          <TC>
+                            {isPrimary
+                              ? <Chip size="small" label="PRIMARY" icon={<MdStar style={{ color: "#fbbf24", fontSize: "0.85rem" }} />} className="p1-chip-primary" />
+                              : <Typography variant="caption" sx={{ opacity: 0.4 }}>—</Typography>}
+                          </TC>
+                          <TC sx={{ opacity: 0.65, fontSize: "0.8rem" }}>{formatDate(r.uploadedAt)}</TC>
+                          <TC sx={{ textAlign: "right" }}>
+                            <Stack direction="row" spacing={0.8} justifyContent="flex-end">
+                              <Tooltip title="Push to Viewer">
+                                <IconButton size="small" className={`p1-icon-btn ${isDark ? "" : "p1-icon-btn-light"}`} onClick={() => handlePushResume(r)}><MdUpload /></IconButton>
+                              </Tooltip>
+                              <Tooltip title="More">
+                                <IconButton size="small" className={`p1-icon-btn ${isDark ? "" : "p1-icon-btn-light"}`} onClick={(e) => openResumeMenu(e, r)}><MdMoreHoriz /></IconButton>
+                              </Tooltip>
+                            </Stack>
+                          </TC>
+                        </TRow>
+                      );
+                    })}
+                    {resumes.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No resumes uploaded.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+
+              <Menu
+                anchorEl={resumeMenuAnchor}
+                anchorReference="anchorPosition"
+                anchorPosition={resumeMenuPosition ? { top: resumeMenuPosition.top, left: resumeMenuPosition.left } : undefined}
+                open={Boolean(resumeMenuAnchor)}
+                onClose={closeResumeMenu}
+              >
+                <MenuItem onClick={previewSelectedResumeInline}><ListItemIcon sx={{ minWidth: 34 }}><MdVisibility /></ListItemIcon>Preview</MenuItem>
+                <MenuItem onClick={makePrimaryResume}><ListItemIcon sx={{ minWidth: 34 }}><MdStar /></ListItemIcon>Make Primary</MenuItem>
+                <Divider className={isDark ? "p1-divider" : "p1-divider-light"} />
+                <MenuItem onClick={deleteResume} sx={{ color: "error.main" }}><ListItemIcon sx={{ minWidth: 34, color: "error.main" }}><MdDelete /></ListItemIcon>Delete</MenuItem>
+              </Menu>
+
+              <ResumePreviewDialog
+                open={resumePreviewOpen}
+                title={resumePreviewTitle}
+                onClose={closeResumePreview}
+                url={viewResumeUrl()}
+                blobUrl={resumePreviewBlobUrl}
+                loading={resumePreviewLoading}
+              />
+
+              <ResumeUploadSuccessDialog
+                open={resumeUploadSuccess}
+                fileName={resumeUploadedName}
+                onClose={() => setResumeUploadSuccess(false)}
+              />
+
+              <Dialog open={pushDialog.open} onClose={() => setPushDialog({ open: false, name: "" })} className={isDark ? "p1-dialog" : "p1-dialog p1-dialog-light"}>
+                <DialogTitle className="p1-dialog-title">Resume Pushed ✓</DialogTitle>
+                <DialogContent>
+                  <Typography sx={{ fontWeight: 600, opacity: 0.85 }}>
+                    "{pushDialog.name}" is now the active resume on the viewer page.
+                  </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                  <Button className="p1-btn-primary" onClick={() => setPushDialog({ open: false, name: "" })}>OK</Button>
+                </DialogActions>
+              </Dialog>
+            </Box>
+          )}
+
+          {/* ── CONFIRM DIALOG ── */}
+          <ConfirmDialog
+            open={confirmOpen}
+            title={confirmPayload.title}
+            description={confirmPayload.description}
+            confirmText={confirmPayload.confirmText}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={confirmPayload.onConfirm || (() => setConfirmOpen(false))}
+          />
 
         </Container>
       </Box>
