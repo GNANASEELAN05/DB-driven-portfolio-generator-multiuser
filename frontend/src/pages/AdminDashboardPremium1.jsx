@@ -963,7 +963,7 @@ try { setErr(""); setOk(""); setLoading(true); const payload = education.map(({ 
   // ══════════════════════════════════════════════════════════════════════════
   return (
 <Box
-  sx={{ display: "flex", minHeight: "100vh" }}
+  sx={{ display: "flex", minHeight: "100vh", width: "100vw", overflow: "hidden" }}
   className={`adm-root ${isDark ? "adm-root-dark" : "adm-root-light"}`}
 >
       <CssBaseline />
@@ -1059,12 +1059,23 @@ try { setErr(""); setOk(""); setLoading(true); const payload = education.map(({ 
     flexGrow: 1,
     minWidth: 0,
     pb: 6,
-    width: { md: `calc(100% - ${drawerWidth}px)` },
+    width: { xs: "100%", md: `calc(100% - ${drawerWidth}px)` },
+    maxWidth: "100%",
+    overflowX: "hidden",
   }}
 >
   <Toolbar />
 
-  <Container maxWidth="xl" sx={{ py: 3 }}>
+<Box
+  sx={{
+    width: "100%",
+    maxWidth: "100%",
+    px: { xs: 2, sm: 3, md: 4 },
+    py: 3,
+    boxSizing: "border-box",
+    overflowX: "hidden",
+  }}
+>
           {ok && <Alert severity="success" className="p1-alert-ok">{ok}</Alert>}
           {err && <Alert severity="error" className="p1-alert-err">{err}</Alert>}
 
@@ -1780,7 +1791,7 @@ try { setErr(""); setOk(""); setLoading(true); const payload = education.map(({ 
             onConfirm={confirmPayload.onConfirm || (() => setConfirmOpen(false))}
           />
 
-        </Container>
+        </Box>
       </Box>
     </Box>
   );

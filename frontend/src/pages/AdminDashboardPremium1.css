@@ -234,6 +234,7 @@
   box-shadow: 0 1px 0 rgba(45,212,191,0.10), 0 4px 24px rgba(0,0,0,0.20) !important;
   width: calc(100% - 280px) !important;
   margin-left: 280px !important;
+  box-sizing: border-box !important;
 }
 
 @media (max-width: 899px) {
@@ -539,6 +540,16 @@
   position: relative;
   z-index: 1;
   background: transparent !important;
+}
+
+.adm-main {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 /* ============================================================
    PAGE HEADER
