@@ -1,16 +1,18 @@
 // frontend/src/pages/HomePremium1.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// SOLARIS GRID — Premium Portfolio Viewer
-// Vibrant coral-gold-electric aesthetic with bold asymmetric layout,
-// animated orbital rings, data-grid panels, and kinetic scroll reveals.
+// SOLARIS GRID — Premium Portfolio Viewer v2
+// Reference-quality layout: full-width sections, glassmorphism cards,
+// macOS dot bars, prismatic borders, orbital rings, holographic scans.
+// Desktop: rich animations. Mobile: static, no lag.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  CircularProgress, Dialog, DialogTitle, DialogContent, IconButton, Tooltip
+  CircularProgress, Dialog, DialogTitle, DialogContent,
+  DialogActions, Button, IconButton, Tooltip,
+  Skeleton, Box, Typography, useTheme,
 } from "@mui/material";
-import http from "../api/http";
 import {
   MdEmail, MdPhone, MdOpenInNew, MdArrowBack,
   MdWorkspacePremium, MdLocationOn, MdDownload,
@@ -19,37 +21,39 @@ import {
   MdPerson, MdContacts, MdBusiness, MdCalendarToday,
   MdStar, MdLink, MdAdminPanelSettings,
   MdHub, MdFlashOn, MdArrowOutward, MdMenu, MdKeyboardArrowDown,
-  MdAutoAwesome,MdRefresh,
+  MdAutoAwesome, MdRefresh, MdVisibility, MdTimeline,
 } from "react-icons/md";
-import {
-  FaGithub, FaLinkedin, FaGlobe, FaCode, FaLayerGroup,
-} from "react-icons/fa";
+import { FaGithub, FaLinkedin, FaGlobe, FaCode, FaLayerGroup } from "react-icons/fa";
 import "./HomePremium1.css";
 
 import {
   getProfile, getSkills, getFeaturedProjects, getSocials,
   getAchievements, getLanguageExperience, getEducation, getExperience,
-  getAllProjectsAdmin,
+  getAllProjectsAdmin, downloadResumeUrl, viewResumeUrl,
 } from "../api/portfolio";
 
-// ── API base — mirrors the exact priority order used in Home.jsx ───────────
-// VITE_API_BASE takes priority, then VITE_API_URL, then hardcoded fallback
+import http from "../api/http";
+
+// ── API base ──────────────────────────────────────────────────────────────────
 const API_BASE = (
   import.meta.env.VITE_API_BASE ||
   import.meta.env.VITE_API_URL  ||
   "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api"
 );
-const BACKEND_BASE = API_BASE.replace(/\/api$/, "");
 
 function safe(v) { return v == null ? "" : String(v); }
 function parseList(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter(Boolean);
-  return v.split(",").map(s => s.trim()).filter(Boolean);
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
 }
-const isMobileDevice = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+function splitCSV(s) {
+  if (!s) return [];
+  if (Array.isArray(s)) return s.filter(Boolean).map(x => String(x).trim()).filter(Boolean);
+  return String(s).split(",").map(x => x.trim()).filter(Boolean);
+}
 
-// ── Resume helpers (ported from Home.jsx) ─────────────────────────────────
+// ── Resume blob download (same as Home.jsx) ───────────────────────────────────
 async function blobDownload(url) {
   const res = await fetch(url, { method: "GET" });
   if (!res.ok) throw new Error("Download failed");
@@ -73,26 +77,223 @@ async function blobDownload(url) {
   return filename;
 }
 
+// ── Section title component (mirrors reference SectionTitle) ─────────────────
+function SectionTitle({ title, icon, accent }) {
+  return (
+    <div className="sp1-sec-title-row">
+      <div className="sp1-sec-icon-box" style={{ "--ac": accent || "var(--sp1-coral)" }}>
+        {icon}
+      </div>
+      <h2 className="sp1-sec-heading">{title}</h2>
+    </div>
+  );
+}
+
+// ── GlassCard (mirrors reference GlassCard) ───────────────────────────────────
+function GlassCard({ children, sx, className }) {
+  return (
+    <div className={`sp1-glass-card${className ? " " + className : ""}`} style={sx}>
+      {children}
+    </div>
+  );
+}
+
+// ── macOS dots bar ────────────────────────────────────────────────────────────
+function MacBar({ label, live }) {
+  return (
+    <div className="sp1-mac-bar">
+      <div className="sp1-mac-dots">
+        <span className="sp1-dot sp1-dot-red" />
+        <span className="sp1-dot sp1-dot-yellow" />
+        <span className="sp1-dot sp1-dot-green" />
+      </div>
+      {label && <span className="sp1-mac-label">{label}</span>}
+      {live && (
+        <span className="sp1-live-pill">
+          <span className="sp1-live-dot" />
+          ACTIVE
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Project card (mirrors reference ProjectCardOneByOne style) ────────────────
+function ProjectCard({ index, p }) {
+  const title = safe(p?.title) || "Untitled Project";
+  const description = safe(p?.description) || "";
+  const techList = splitCSV(p?.tech);
+  const repoUrl = safe(p?.repoUrl || "");
+  const liveUrl = safe(p?.liveUrl || "");
+
+  return (
+    <div className="sp1-proj-card" style={{ "--idx": index }}>
+      <MacBar label={`${title.toLowerCase().replace(/\s+/g, "_")}.js`} live={safe(p?.status) !== "Completed"} />
+      <div className="sp1-proj-body">
+        <div className="sp1-proj-num-row">
+          <div className="sp1-proj-orb">
+            <div className="sp1-proj-orb-ring sp1-por1" />
+            <div className="sp1-proj-orb-ring sp1-por2" />
+            <div className="sp1-proj-orb-core">
+              <span className="sp1-proj-num">{index}</span>
+            </div>
+          </div>
+          <div className="sp1-proj-title-block">
+            <div className="sp1-proj-title-beam" />
+            <div>
+              <h3 className="sp1-proj-title">{title}</h3>
+              {safe(p?.status) && (
+                <span className={`sp1-proj-status-chip ${safe(p?.status) === "Completed" ? "done" : "wip"}`}>
+                  {safe(p?.status)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="sp1-proj-icon-links">
+            {liveUrl && (
+              <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="sp1-proj-link sp1-link-live" title="Live Demo">
+                <MdOpenInNew size={13} />
+              </a>
+            )}
+            {repoUrl && (
+              <a href={repoUrl} target="_blank" rel="noopener noreferrer" className="sp1-proj-link sp1-link-repo" title="Repository">
+                <FaGithub size={12} />
+              </a>
+            )}
+          </div>
+        </div>
+
+        {description && (
+          <p className="sp1-proj-desc">{description}</p>
+        )}
+
+        {techList.length > 0 && (
+          <div className="sp1-proj-tech-wrap">
+            <span className="sp1-proj-tech-label">STACK</span>
+            <div className="sp1-proj-chips">
+              {techList.map((t, i) => (
+                <span key={i} className="sp1-chip sp1-chip-tech">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(repoUrl || liveUrl) && (
+          <div className="sp1-proj-actions">
+            {repoUrl && (
+              <button className="sp1-proj-btn sp1-btn-outline" onClick={() => window.open(repoUrl, "_blank")}>
+                <FaGithub size={12} /> Source Code
+              </button>
+            )}
+            {liveUrl && (
+              <button className="sp1-proj-btn sp1-btn-solid" onClick={() => window.open(liveUrl, "_blank")}>
+                <MdOpenInNew size={12} /> Live Demo
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="sp1-proj-corner sp1-corner-tl" />
+      <div className="sp1-proj-corner sp1-corner-br" />
+      <div className="sp1-proj-prism" />
+    </div>
+  );
+}
+
+// ── Resume Preview Dialog (fixed, same as Home.jsx pattern) ──────────────────
+function ResumePreviewDialog({ open, title, onClose, url, blobUrl, loading }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const src = blobUrl || url;
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle
+        sx={{
+          fontSize: { xs: "1rem", md: "1.25rem" },
+          py: 1.5,
+          fontWeight: 800,
+        }}
+      >
+        {title}
+      </DialogTitle>
+
+      <DialogContent
+        sx={{
+          height: { xs: 480, md: 580 },
+          p: 0,
+          overflow: "hidden",
+          bgcolor: "black",
+        }}
+      >
+        {loading ? (
+          <Box sx={{ p: 3 }}>
+            <Typography sx={{ opacity: 0.75, color: "#fff" }}>
+              Loading preview…
+            </Typography>
+          </Box>
+        ) : src ? (
+          <Box sx={{ width: "100%", height: "100%", overflow: "hidden" }}>
+            <iframe
+              title="Resume Preview"
+              src={
+                isMobile
+                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+                  : `${src}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+              }
+              style={{
+                width: "100%",
+                height: "100%",
+                border: "none",
+                display: "block",
+              }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ p: 3 }}>
+            <Typography sx={{ opacity: 0.75, color: "#fff" }}>
+              Preview not available.
+            </Typography>
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" variant="outlined">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-export default function HomePremium1() {
+export default function HomePremium1({ toggleTheme }) {
   const { username } = useParams();
   const navigate     = useNavigate();
 
-  const [loading,        setLoading]        = useState(true);
-  const [profile,        setProfile]        = useState({});
-  const [skills,         setSkills]         = useState({});
-  const [projects,       setProjects]       = useState([]);
-  const [socials,        setSocials]        = useState({});
-  const [achievements,   setAchievements]   = useState([]);
-  const [languages,      setLanguages]      = useState([]);
-  const [education,      setEducation]      = useState([]);
-  const [experience,     setExperience]     = useState([]);
-  const [theme,          setTheme]          = useState("dark");
-  const [activeSection,  setActiveSection]  = useState("hero");
-  const [mobileNav,      setMobileNav]      = useState(false);
-  const [scrolled,       setScrolled]       = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [reloadTick,    setReloadTick]    = useState(0);
+  const [profile,       setProfile]       = useState({});
+  const [skills,        setSkills]        = useState({});
+  const [projects,      setProjects]      = useState([]);
+  const [socials,       setSocials]       = useState({});
+  const [achievements,  setAchievements]  = useState([]);
+  const [languages,     setLanguages]     = useState([]);
+  const [education,     setEducation]     = useState([]);
+  const [experience,    setExperience]    = useState([]);
+  const [theme,         setTheme]         = useState("dark");
+  const [activeSection, setActiveSection] = useState("hero");
+  const [mobileNav,     setMobileNav]     = useState(false);
+  const [scrolled,      setScrolled]      = useState(false);
 
-  // resume state (same pattern as Home.jsx)
+  // resume state (same as Home.jsx)
   const [resumeName,           setResumeName]           = useState("Resume.pdf");
   const [downloading,          setDownloading]          = useState(false);
   const [resumePreviewOpen,    setResumePreviewOpen]    = useState(false);
@@ -100,71 +301,116 @@ export default function HomePremium1() {
   const [resumePreviewBlobUrl, setResumePreviewBlobUrl] = useState("");
   const [resumePreviewLoading, setResumePreviewLoading] = useState(false);
 
-  // ── Data load ──────────────────────────────────────────────────────────────
+  const wrapRef = useRef(null);
+
+  // ── Data load (single Promise.all, same as Home.jsx) ──────────────────────
   useEffect(() => {
-    if (!username) return;
+    let alive = true;
     const load = async () => {
       setLoading(true);
       try {
+        const tryAllProjects = getAllProjectsAdmin
+          ? getAllProjectsAdmin(username).catch(() => getFeaturedProjects(username))
+          : getFeaturedProjects(username);
+
         const [p, sk, pr, so, ac, la, ed, ex] = await Promise.all([
           getProfile(username), getSkills(username),
-          // Try all projects first (same as admin view), fall back to featured only
-          (getAllProjectsAdmin ? getAllProjectsAdmin(username) : getFeaturedProjects(username)).catch(() => getFeaturedProjects(username)),
+          tryAllProjects,
           getSocials(username),
           getAchievements(username), getLanguageExperience(username),
           getEducation(username), getExperience(username),
         ]);
+        if (!alive) return;
         setProfile(p?.data   || {});
         setSkills(sk?.data   || {});
-        setProjects(pr?.data || []);
+        setProjects(Array.isArray(pr?.data) ? pr.data : []);
         setSocials(so?.data  || {});
-        setAchievements(ac?.data || []);
-        setLanguages(la?.data    || []);
-        setEducation(ed?.data    || []);
-        setExperience(ex?.data   || []);
-        const localName = localStorage.getItem("active_resume_file_name") || localStorage.getItem("resume_file_name") || "";
+        setAchievements(Array.isArray(ac?.data) ? ac.data : []);
+        setLanguages(Array.isArray(la?.data) ? la.data : []);
+        setEducation(Array.isArray(ed?.data) ? ed.data : []);
+        setExperience(Array.isArray(ex?.data) ? ex.data : []);
+
+        const localName =
+          localStorage.getItem("active_resume_file_name") ||
+          localStorage.getItem("resume_file_name") || "";
         if (localName) setResumeName(localName);
 
       } catch {}
-      finally { setLoading(false); }
+      finally { if (alive) setLoading(false); }
     };
     load();
-    document.title = `${username} Portfolio`;
-  }, [username]);
+    return () => { alive = false; };
+  }, [reloadTick]);
 
-  // ── Override #root ─────────────────────────────────────────────────────────
+    useEffect(() => {
+    const dispName =
+      localStorage.getItem("display_name") ||
+      localStorage.getItem("auth_user_original") ||
+      username || "";
+    if (dispName) document.title = `${dispName} Portfolio`;
+  }, [username, profile]);
+
+  // ── storage sync (same as Home.jsx) ──────────────────────────────────────
+// ── storage sync — only reload when admin pushes changes from another tab ─
+  // Never reload on plain focus or tab switch — only when content_version,
+  // active_resume_file_name, or resume_file_name actually changes in storage.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e || !e.key) return;
+      if (
+        e.key === "content_version" ||
+        e.key === "active_resume_file_name" ||
+        e.key === "resume_file_name"
+      ) {
+        setReloadTick(x => x + 1);
+      }
+    };
+    // Only listen to cross-tab storage events — no focus, no visibilitychange
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  // ── override #root ────────────────────────────────────────────────────────
   useEffect(() => {
     const root = document.getElementById("root");
     const prev = root?.getAttribute("style") || null;
     if (root) {
       root.style.maxWidth = "none"; root.style.padding = "0";
-      root.style.margin = "0"; root.style.width = "100%"; root.style.overflow = "hidden";
+      root.style.margin = "0"; root.style.width = "100%";
     }
-    return () => { if (root) { if (prev) root.setAttribute("style", prev); else root.removeAttribute("style"); } };
+    return () => {
+      if (root) { if (prev) root.setAttribute("style", prev); else root.removeAttribute("style"); }
+    };
   }, []);
 
-  // ── Scroll detection ───────────────────────────────────────────────────────
+  // ── scroll detection ──────────────────────────────────────────────────────
   useEffect(() => {
-    const el = document.querySelector(".sl-wrap");
+    const el = wrapRef.current;
     if (!el) return;
     const onScroll = () => setScrolled(el.scrollTop > 60);
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
-  }, [loading]);
+  }, []);
 
-  // ── Resume URLs — built directly from API_BASE (no helper dependency) ──────
-  const contentVersion     = localStorage.getItem("content_version") || "0";
-  const resumeDownloadBase = `${API_BASE}/u/${username}/resume/download`;
-  const resumeViewBase     = `${API_BASE}/u/${username}/resume/view`;
+  // ── Resume URLs (same cache-bust pattern as Home.jsx) ─────────────────────
+  const contentVersion = useMemo(
+    () => localStorage.getItem("content_version") || "0",
+    [reloadTick]
+  );
+  const resumeDownloadBase = useMemo(() => downloadResumeUrl(username), [username]);
+  const resumeViewBase     = useMemo(() => viewResumeUrl(username), [username]);
 
-  const bust = (base) => {
+  const bust = useCallback((base) => {
     const j = base.includes("?") ? "&" : "?";
     return `${base}${j}v=${encodeURIComponent(contentVersion)}&t=${Date.now()}`;
-  };
-  const resumeDownloadUrlBusted = bust(resumeDownloadBase);
-  const resumeViewUrlBusted     = bust(resumeViewBase);
+  }, [contentVersion]);
 
-  // ── Download (identical to Home.jsx) ──────────────────────────────────────
+  const resumeDownloadUrlBusted = useMemo(() => bust(resumeDownloadBase), [bust, resumeDownloadBase]);
+  const resumeViewUrlBusted     = useMemo(() => bust(resumeViewBase), [bust, resumeViewBase]);
+
+  // ── Download resume ────────────────────────────────────────────────────────
   const onDownloadResume = async () => {
     try {
       setDownloading(true);
@@ -176,19 +422,22 @@ export default function HomePremium1() {
     } finally { setDownloading(false); }
   };
 
-  // ── Preview (identical to Home.jsx) ───────────────────────────────────────
-const [resumePreviewBlobBase, setResumePreviewBlobBase] = useState("");
-const onPreviewResume = async () => {
+const openResumePreviewInline = async (title, directUrl) => {
   try {
-    setResumePreviewTitle(resumeName || "Resume Preview");
+    setResumePreviewTitle(title || "Resume Preview");
     setResumePreviewLoading(true);
     setResumePreviewOpen(true);
-    const res = await http.get(resumeViewUrlBusted, { responseType: "blob" });
+
+    if (resumePreviewBlobUrl) {
+      try {
+        URL.revokeObjectURL(resumePreviewBlobUrl);
+      } catch {}
+    }
+    setResumePreviewBlobUrl("");
+
+    const res = await http.get(directUrl, { responseType: "blob" });
     const blob = new Blob([res.data], { type: "application/pdf" });
-    const objUrl = URL.createObjectURL(blob);
-    setResumePreviewBlobUrl(objUrl + "#toolbar=0&navpanes=0&scrollbar=0&view=FitH");
-    // store clean url for mobile Google Docs viewer
-    setResumePreviewBlobUrl(objUrl);
+    setResumePreviewBlobUrl(URL.createObjectURL(blob));
   } catch {
     setResumePreviewBlobUrl("");
   } finally {
@@ -198,146 +447,176 @@ const onPreviewResume = async () => {
 
 const closeResumePreview = () => {
   setResumePreviewOpen(false);
-  if (resumePreviewBlobBase) { try { URL.revokeObjectURL(resumePreviewBlobBase); } catch {} }
+  if (resumePreviewBlobUrl) {
+    try {
+      URL.revokeObjectURL(resumePreviewBlobUrl);
+    } catch {}
+  }
   setResumePreviewBlobUrl("");
-  setResumePreviewBlobBase("");
 };
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const allSkills = [...parseList(skills.frontend), ...parseList(skills.backend), ...parseList(skills.tools)];
-  const isCurrent = (exp) => !safe(exp.end).trim();
+const onPreviewResume = async () => {
+  await openResumePreviewInline(
+    resumeName || "Resume Preview",
+    viewResumeUrl(username)
+  );
+};
+
+  // ── Derived values ────────────────────────────────────────────────────────
+  const name = safe(profile?.name) || username || "Portfolio";
+  const titleText = safe(profile?.title) || "Developer";
+  const tagline = safe(profile?.tagline) || "";
+  const about = safe(profile?.about) || "";
+  const location = safe(profile?.location) || "";
+  const emailPublic = safe(profile?.emailPublic) || "";
+
+  const contactEmail = useMemo(() => {
+    const ep = safe(emailPublic).trim();
+    if (ep) return ep;
+    return safe(socials?.email).trim();
+  }, [emailPublic, socials?.email]);
+
+  const allSkills = useMemo(() => [
+    ...parseList(skills.frontend),
+    ...parseList(skills.backend),
+    ...parseList(skills.tools),
+  ], [skills]);
+
+  const skillCategoryRows = useMemo(() => {
+    const s = skills || {};
+    return [
+      { category: "Frontend",  value: splitCSV(s.frontend).join(" · ") || "—" },
+      { category: "Backend",   value: splitCSV(s.backend).join(" · ")  || "—" },
+      { category: "Database",  value: splitCSV(s.database).join(" · ") || "—" },
+      { category: "Tools",     value: splitCSV(s.tools).join(" · ")    || "—" },
+    ];
+  }, [skills]);
+
+  const isCurrent = (exp) => !safe(exp?.end).trim();
 
   const scrollTo = (id) => {
     setActiveSection(id);
     setMobileNav(false);
-    document.getElementById(`sl-sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(`sp1-sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const reload = () => setReloadTick(x => x + 1);
 
   const navItems = [
     { id: "hero",     label: "Home"       },
     { id: "about",    label: "About"      },
+    { id: "skills",   label: "Skills"     },
     { id: "exp",      label: "Experience" },
     { id: "projects", label: "Projects"   },
     { id: "ach",      label: "Awards"     },
     { id: "edu",      label: "Education"  },
+    { id: "langs",    label: "Languages"  },
     { id: "contact",  label: "Contact"    },
   ];
 
-  // ── Loading screen ─────────────────────────────────────────────────────────
+  // ── Loading screen ────────────────────────────────────────────────────────
   if (loading) return (
-    <div className={`sl-wrap sl-${theme}`}>
-      <div className="sl-loader">
-        <div className="sl-loader-ring" />
-        <div className="sl-loader-ring sl-ring2" />
-        <div className="sl-loader-icon"><MdAutoAwesome size={28} /></div>
-        <p className="sl-loader-text">Initializing portfolio…</p>
+    <div className={`sp1-wrap sp1-${theme}`} ref={wrapRef}>
+      <div className="sp1-loader">
+        <div className="sp1-loader-ring" />
+        <div className="sp1-loader-ring sp1-ring2" />
+        <div className="sp1-loader-icon"><MdAutoAwesome size={28} /></div>
+        <p className="sp1-loader-text">Loading portfolio…</p>
       </div>
     </div>
   );
 
   return (
-    <div className={`sl-wrap sl-${theme}`}>
+    <div className={`sp1-wrap sp1-${theme}`} ref={wrapRef}>
 
-      {/* ── Background canvas ───────────────────────────────────────────────── */}
-      <div className="sl-bg" aria-hidden="true">
-        <div className="sl-bg-mesh" />
-        <div className="sl-bg-orb sl-orb-a" />
-        <div className="sl-bg-orb sl-orb-b" />
-        <div className="sl-bg-orb sl-orb-c" />
-        <div className="sl-noise" />
+      {/* ── Decorative background ──────────────────────────────────────────── */}
+      <div className="sp1-bg" aria-hidden="true">
+        <div className="sp1-bg-mesh" />
+        <div className="sp1-bg-orb sp1-orb-a" />
+        <div className="sp1-bg-orb sp1-orb-b" />
+        <div className="sp1-bg-orb sp1-orb-c" />
+        <div className="sp1-noise" />
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          NAVBAR
-          ════════════════════════════════════════════════════════════════════════ */}
-      <nav className={`sl-nav${scrolled ? " sl-nav-scrolled" : ""}`}>
-        <div className="sl-nav-inner">
+      {/* ══ NAVBAR ══════════════════════════════════════════════════════════ */}
+      <nav className={`sp1-nav${scrolled ? " sp1-nav-scrolled" : ""}`}>
+        <div className="sp1-nav-inner">
 
           {/* Brand */}
-          <div className="sl-brand">
-            <div className="sl-brand-mark">
+          <div className="sp1-brand">
+            <div className="sp1-brand-mark">
               <MdAutoAwesome size={14} />
             </div>
-            <span className="sl-brand-name">{safe(profile.name) || username}</span>
+            <span className="sp1-brand-name">{name}</span>
           </div>
 
-          {/* Desktop pills */}
-          <div className="sl-nav-links">
+          {/* Desktop nav links */}
+          <div className="sp1-nav-links">
             {navItems.map(n => (
-              <button key={n.id}
-                className={`sl-navlink${activeSection === n.id ? " active" : ""}`}
-                onClick={() => scrollTo(n.id)}>
+              <button
+                key={n.id}
+                className={`sp1-navlink${activeSection === n.id ? " active" : ""}`}
+                onClick={() => scrollTo(n.id)}
+              >
                 {n.label}
               </button>
             ))}
           </div>
 
-          {/* Actions */}
-<div className="sl-nav-right">
+          {/* Top action buttons */}
+          <div className="sp1-nav-right">
+            <Tooltip title="Reload Data">
+              <button className="sp1-topbtn sp1-topbtn-reload" onClick={reload} aria-label="Reload">
+                <MdRefresh size={17} />
+              </button>
+            </Tooltip>
 
-  {/* Reload */}
-  <Tooltip title="Reload Data">
-    <button
-      className="sl-topbtn sl-topbtn-reload"
-      onClick={() => window.location.reload()}
-      aria-label="Reload"
-    >
-      <MdRefresh size={18} style={{ color: "#4af0ff" }} />
-    </button>
-  </Tooltip>
+            <Tooltip title={theme === "dark" ? "Light Mode" : "Dark Mode"}>
+              <button
+                className="sp1-topbtn sp1-topbtn-theme"
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <MdLightMode size={17} /> : <MdDarkMode size={17} />}
+              </button>
+            </Tooltip>
 
-  {/* Theme toggle */}
-  <Tooltip title={theme === "dark" ? "Switch to Light mode" : "Switch to Dark mode"}>
-    <button
-      className="sl-topbtn sl-topbtn-theme"
-      onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-      aria-label="Toggle theme"
-    >
-      {theme === "dark"
-        ? <MdLightMode size={18} style={{ color: "#ffc844" }} />
-        : <MdDarkMode  size={18} style={{ color: "#4af0ff" }} />
-      }
-    </button>
-  </Tooltip>
+            <Tooltip title="Go to Admin">
+              <button
+                className="sp1-topbtn sp1-topbtn-admin"
+                onClick={() => navigate(`/${username}/adminpanel`)}
+                aria-label="Admin"
+              >
+                <MdAdminPanelSettings size={17} />
+              </button>
+            </Tooltip>
 
-  {/* Admin dashboard — same pattern as Home.jsx */}
-  <Tooltip title="Go to Admin">
-    <button
-      className="sl-topbtn sl-topbtn-admin"
-      onClick={() => navigate(`/${username}/adminpanel/premium1`)}
-      aria-label="Go to Admin Dashboard"
-    >
-      <MdAdminPanelSettings size={18} style={{ color: "#b066ff" }} />
-    </button>
-  </Tooltip>
-
-  {/* Mobile hamburger */}
-  <button className="sl-mobile-menu" onClick={() => setMobileNav(v => !v)}>
-    <MdMenu size={20} />
-  </button>
-</div>
-
-
+            <button className="sp1-mobile-menu" onClick={() => setMobileNav(v => !v)}>
+              <MdMenu size={20} />
+            </button>
+          </div>
         </div>
 
-        {/* Mobile nav drawer */}
+        {/* Mobile drawer */}
         {mobileNav && (
-          <div className="sl-mobile-nav">
+          <div className="sp1-mobile-nav">
             {navItems.map(n => (
-              <button key={n.id} className="sl-mobile-navlink" onClick={() => scrollTo(n.id)}>{n.label}</button>
+              <button key={n.id} className="sp1-mobile-navlink" onClick={() => scrollTo(n.id)}>
+                {n.label}
+              </button>
             ))}
           </div>
         )}
 
         {/* Skill ticker */}
         {allSkills.length > 0 && (
-          <div className="sl-ticker">
-            <span className="sl-ticker-tag">STACK</span>
-            <div className="sl-ticker-track">
-              <div className="sl-ticker-inner">
+          <div className="sp1-ticker">
+            <span className="sp1-ticker-tag">STACK</span>
+            <div className="sp1-ticker-track">
+              <div className="sp1-ticker-inner">
                 {[...allSkills, ...allSkills, ...allSkills].map((s, i) => (
-                  <span key={i} className="sl-tick-item">
-                    <span className="sl-tick-dot">◆</span>{s}
+                  <span key={i} className="sp1-tick-item">
+                    <span className="sp1-tick-dot">◆</span>{s}
                   </span>
                 ))}
               </div>
@@ -346,606 +625,472 @@ const closeResumePreview = () => {
         )}
       </nav>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          HERO
-          ════════════════════════════════════════════════════════════════════════ */}
-      <section id="sl-sec-hero" className="sl-hero">
+      {/* ══ HERO ════════════════════════════════════════════════════════════ */}
+      <section id="sp1-sec-hero" className="sp1-section sp1-hero-section">
+        <div className="sp1-hero-card">
+          {/* macOS bar on hero */}
+          <MacBar label={`${(name || "portfolio").toLowerCase().replace(/\s+/g, "_")}.jsx`} live />
 
-        {/* Left column — identity */}
-        <div className="sl-hero-left">
-          <div className="sl-hero-eyebrow">
-            <span className="sl-eyebrow-dot" />
-            <span>{safe(profile.title) || "Developer"}</span>
-          </div>
+          <div className="sp1-hero-inner">
 
-          <h1 className="sl-hero-name">
-            {(safe(profile.name) || username).split(" ").map((word, i) => (
-              <span key={i} className="sl-name-word" style={{ animationDelay: `${i * 0.12}s` }}>
-                {word}
-              </span>
-            ))}
-          </h1>
+            {/* Left: identity */}
+            <div className="sp1-hero-left">
+              <div className="sp1-hero-eyebrow">
+                <span className="sp1-eyebrow-dot" />
+                {titleText}
+              </div>
 
-          {safe(profile.tagline) && (
-            <p className="sl-hero-tagline">{safe(profile.tagline)}</p>
-          )}
+              <h1 className="sp1-hero-name">
+                {(name).split(" ").map((word, i) => (
+                  <span key={i} className="sp1-name-word" style={{ "--d": `${i * 0.12}s` }}>
+                    {i === 0 ? word : (
+                      <span className="sp1-name-accent">{word}</span>
+                    )}
+                  </span>
+                ))}
+              </h1>
 
-          {safe(profile.location) && (
-            <div className="sl-hero-loc">
-              <MdLocationOn size={13} />
-              {safe(profile.location)}
-            </div>
-          )}
+              {/* Name divider beam */}
+              <div className="sp1-hero-divider" />
 
-          {(safe(profile.emailPublic) || safe(socials.email)) && (
-            <div className="sl-hero-loc" style={{ marginBottom: 30 }}>
-              <MdEmail size={13} />
-              {safe(profile.emailPublic) || safe(socials.email)}
-            </div>
-          )}
+              {tagline && <p className="sp1-hero-tagline">{tagline}</p>}
 
-          {/* CTA row */}
-          <div className="sl-hero-cta">
-            {safe(socials.email) && (
-              <a href={`mailto:${safe(socials.email)}`} className="sl-cta-primary">
-                <MdEmail size={15} />
-                Hire Me
-                <MdArrowOutward size={13} className="sl-cta-arrow" />
-              </a>
-            )}
-            <button className="sl-cta-secondary" onClick={onPreviewResume}>
-              <MdPictureAsPdf size={15} />
-              Preview CV
-            </button>
-            <button className="sl-cta-ghost" onClick={onDownloadResume} disabled={downloading}>
-              <MdDownload size={15} />
-              {downloading ? "…" : "Download"}
-            </button>
-          </div>
+              <div className="sp1-hero-meta">
+                {location && (
+                  <span className="sp1-meta-item">
+                    <MdLocationOn size={13} />{location}
+                  </span>
+                )}
+                {emailPublic && (
+                  <span className="sp1-meta-item">
+                    <MdEmail size={13} />{emailPublic}
+                  </span>
+                )}
+              </div>
 
-          {/* Social links */}
-          <div className="sl-hero-socials">
-            {safe(socials.github) && (
-              <a href={safe(socials.github)} target="_blank" rel="noopener noreferrer" className="sl-social-link" title="GitHub">
-                <FaGithub size={16} />
-              </a>
-            )}
-            {safe(socials.linkedin) && (
-              <a href={safe(socials.linkedin)} target="_blank" rel="noopener noreferrer" className="sl-social-link" title="LinkedIn">
-                <FaLinkedin size={16} />
-              </a>
-            )}
-            {safe(socials.website) && (
-              <a href={safe(socials.website)} target="_blank" rel="noopener noreferrer" className="sl-social-link" title="Website">
-                <FaGlobe size={15} />
-              </a>
-            )}
-            {safe(socials.email) && (
-              <a href={`mailto:${safe(socials.email)}`} className="sl-social-link" title="Email">
-                <MdEmail size={16} />
-              </a>
-            )}
-          </div>
-        </div>
+              {/* CTA buttons */}
+              <div className="sp1-hero-cta">
+                <button className="sp1-cta-primary" onClick={() => scrollTo("about")}>
+                  Explore <MdKeyboardArrowDown size={15} />
+                </button>
+                <button className="sp1-cta-secondary" onClick={onDownloadResume} disabled={downloading}>
+                  <MdDownload size={15} />
+                  {downloading ? "Downloading…" : `Download (${resumeName})`}
+                </button>
+<button
+  type="button"
+  className="sp1-cta-ghost"
+  onClick={onPreviewResume}
+>
+  <MdVisibility size={15} /> Preview CV
+</button>
+              </div>
 
-        {/* Center — avatar orbital */}
-        <div className="sl-hero-center">
-          <div className="sl-orbital">
-            <div className="sl-orbital-ring sl-or1" />
-            <div className="sl-orbital-ring sl-or2" />
-            <div className="sl-orbital-ring sl-or3" />
-            <div className="sl-orbital-dot sl-od1"><span /></div>
-            <div className="sl-orbital-dot sl-od2"><span /></div>
-            <div className="sl-orbital-dot sl-od3"><span /></div>
-            <div className="sl-avatar-frame">
-
-              <div className="sl-avatar-initials">
-                {safe(profile.initials) ||
-                  (safe(profile.name) || username || "").slice(0, 2).toUpperCase()}
+              {/* Social icons */}
+              <div className="sp1-hero-socials">
+                {safe(socials?.github) && (
+                  <a href={safe(socials.github)} target="_blank" rel="noopener noreferrer"
+                    className="sp1-social-btn" title="GitHub">
+                    <FaGithub size={16} />
+                  </a>
+                )}
+                {safe(socials?.linkedin) && (
+                  <a href={safe(socials.linkedin)} target="_blank" rel="noopener noreferrer"
+                    className="sp1-social-btn" title="LinkedIn">
+                    <FaLinkedin size={16} />
+                  </a>
+                )}
+                {contactEmail && (
+                  <a href={`mailto:${contactEmail}`} className="sp1-social-btn" title="Email">
+                    <MdEmail size={16} />
+                  </a>
+                )}
+                {safe(socials?.website) && (
+                  <a href={safe(socials.website)} target="_blank" rel="noopener noreferrer"
+                    className="sp1-social-btn" title="Website">
+                    <FaGlobe size={15} />
+                  </a>
+                )}
+                {safe(socials?.phone) && (
+                  <a href={`tel:${safe(socials.phone)}`} className="sp1-social-btn" title="Phone">
+                    <MdPhone size={15} />
+                  </a>
+                )}
               </div>
             </div>
-            <div className="sl-status-badge">
-              <span className="sl-status-pulse" />
-              Available
-            </div>
-          </div>
-        </div>
 
-        {/* Right column — stats + skills preview */}
-        <div className="sl-hero-right">
-          {/* Counter cards */}
-          <div className="sl-stat-grid">
-            {[
-              { n: experience.length,   l: "Roles",    c: "var(--sl-coral)"    },
-              { n: projects.length,     l: "Projects", c: "var(--sl-electric)" },
-              { n: achievements.length, l: "Awards",   c: "var(--sl-gold)"     },
-              { n: education.length,    l: "Degrees",  c: "var(--sl-lime)"     },
-            ].filter(s => s.n > 0).map((s, i) => (
-              <div key={i} className="sl-stat-card" style={{ "--c": s.c }}>
-                <span className="sl-stat-n">{s.n}</span>
-                <span className="sl-stat-l">{s.l}</span>
+            {/* Center: orbital avatar */}
+            <div className="sp1-hero-center">
+              <div className="sp1-orbital">
+                <div className="sp1-or sp1-or1" />
+                <div className="sp1-or sp1-or2" />
+                <div className="sp1-or sp1-or3" />
+                <div className="sp1-od sp1-od1"><span /></div>
+                <div className="sp1-od sp1-od2"><span /></div>
+                <div className="sp1-od sp1-od3"><span /></div>
+                <div className="sp1-avatar-frame">
+                  <div className="sp1-avatar-initials">
+                    {safe(profile?.initials) ||
+                      (name || username || "").slice(0, 2).toUpperCase()}
+                  </div>
+                </div>
+                <div className="sp1-status-badge">
+                  <span className="sp1-status-pulse" />
+                  Available
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Top skill chips */}
-          <div className="sl-skill-preview">
-            <div className="sl-sp-label">Top Skills</div>
-            <div className="sl-sp-chips">
-              {parseList(skills.frontend).slice(0, 3).map((s, i) => (
-                <span key={i} className="sl-chip sl-chip-fe">{s}</span>
-              ))}
-              {parseList(skills.backend).slice(0, 2).map((s, i) => (
-                <span key={i} className="sl-chip sl-chip-be">{s}</span>
-              ))}
-              {parseList(skills.tools).slice(0, 2).map((s, i) => (
-                <span key={i} className="sl-chip sl-chip-tool">{s}</span>
-              ))}
+            {/* Right: stats */}
+            <div className="sp1-hero-right">
+              <div className="sp1-stat-grid">
+                {[
+                  { n: experience.length,   l: "Roles",    c: "var(--sp1-coral)"    },
+                  { n: projects.length,     l: "Projects", c: "var(--sp1-electric)" },
+                  { n: achievements.length, l: "Awards",   c: "var(--sp1-gold)"     },
+                  { n: education.length,    l: "Degrees",  c: "var(--sp1-lime)"     },
+                ].filter(s => s.n > 0).map((s, i) => (
+                  <div key={i} className="sp1-stat-card" style={{ "--c": s.c }}>
+                    <span className="sp1-stat-n">{s.n}</span>
+                    <span className="sp1-stat-l">{s.l}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="sp1-hero-skill-preview">
+                <div className="sp1-sp-label">Top Skills</div>
+                <div className="sp1-sp-chips">
+                  {parseList(skills.frontend).slice(0, 3).map((s, i) => (
+                    <span key={i} className="sp1-chip sp1-chip-fe">{s}</span>
+                  ))}
+                  {parseList(skills.backend).slice(0, 2).map((s, i) => (
+                    <span key={i} className="sp1-chip sp1-chip-be">{s}</span>
+                  ))}
+                  {parseList(skills.tools).slice(0, 2).map((s, i) => (
+                    <span key={i} className="sp1-chip sp1-chip-tool">{s}</span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Scroll cue */}
-        <div className="sl-scroll-cue" onClick={() => scrollTo("about")}>
-          <MdKeyboardArrowDown size={20} />
+          {/* Hero corner brackets */}
+          <div className="sp1-hero-corner sp1-hc-tl" />
+          <div className="sp1-hero-corner sp1-hc-tr" />
+          <div className="sp1-hero-corner sp1-hc-bl" />
+          <div className="sp1-hero-corner sp1-hc-br" />
+          <div className="sp1-hero-prism" />
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          ABOUT
-          ════════════════════════════════════════════════════════════════════════ */}
-      {safe(profile.about) && (
-        <section id="sl-sec-about" className="sl-section">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdPerson size={13} /> About</div>
-              <h2 className="sl-sec-title">Who I Am</h2>
-            </div>
-            <div className="sl-about-layout">
-              <div className="sl-about-text-card">
-                <div className="sl-card-corner tl" /><div className="sl-card-corner tr" />
-                <div className="sl-card-corner bl" /><div className="sl-card-corner br" />
-                <p className="sl-about-text">{safe(profile.about)}</p>
-              </div>
+      {/* ══ ABOUT ══════════════════════════════════════════════════════════ */}
+      {about && (
+        <section id="sp1-sec-about" className="sp1-section">
+          <div className="sp1-section-inner">
+            <SectionTitle title="About Me" icon={<MdPerson size={18} />} accent="var(--sp1-coral)" />
+            <GlassCard sx={{ padding: "28px 32px" }}>
+              <p className="sp1-about-text">{about}</p>
+            </GlassCard>
+          </div>
+        </section>
+      )}
 
-              {/* Languages */}
-              {languages.length > 0 && (
-                <div className="sl-lang-card">
-                  <div className="sl-lang-title">Language Proficiency</div>
-                  {languages.map((l, i) => {
-                    const pct = Math.min((parseInt(safe(l.years)) || 1) * 18, 100);
-                    return (
-                      <div key={i} className="sl-lang-row" style={{ "--d": `${i * 0.07}s` }}>
-                        <div className="sl-lang-meta">
-                          <span className="sl-lang-name">{safe(l.language || l.name)}</span>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {safe(l.level) && <span className="sl-lang-level">{safe(l.level)}</span>}
-                            {safe(l.notes) && <span className="sl-lang-level" style={{ opacity: 0.5 }}>{safe(l.notes)}</span>}
-                          </div>
+      {/* ══ SKILLS ══════════════════════════════════════════════════════════ */}
+      {(parseList(skills.frontend).length > 0 || parseList(skills.backend).length > 0 || parseList(skills.tools).length > 0) && (
+        <section id="sp1-sec-skills" className="sp1-section sp1-section-alt">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Skills" icon={<MdCode size={18} />} accent="var(--sp1-electric)" />
+            <GlassCard sx={{ padding: "0" }}>
+              <div className="sp1-skills-table-wrap">
+                <table className="sp1-skills-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Skills</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {skillCategoryRows.filter(r => r.value !== "—").map((r, i) => (
+                      <tr key={i}>
+                        <td className="sp1-skills-cat">{r.category}</td>
+                        <td className="sp1-skills-val">{r.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          </div>
+        </section>
+      )}
+
+      {/* ══ EXPERIENCE ══════════════════════════════════════════════════════ */}
+      {experience.length > 0 && (
+        <section id="sp1-sec-exp" className="sp1-section">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Experience" icon={<MdTimeline size={18} />} accent="var(--sp1-orange)" />
+            <div className="sp1-exp-list">
+              {experience.map((e, i) => (
+                <div key={e?.id ?? i} className="sp1-exp-card" style={{ "--i": i }}>
+                  <MacBar label={`${safe(e?.role) || "Role"} @ ${safe(e?.company) || "Company"}`} live={isCurrent(e)} />
+                  <div className="sp1-exp-body">
+                    <div className="sp1-exp-left">
+                      <div className="sp1-exp-orb">
+                        <div className="sp1-exp-orb-ring sp1-eor1" />
+                        <div className="sp1-exp-orb-ring sp1-eor2" />
+                        <div className="sp1-exp-orb-core">
+                          {isCurrent(e) ? <MdFlashOn size={14} /> : <MdWork size={12} />}
                         </div>
-                        <div className="sl-lang-bar">
-                          <div className="sl-lang-fill" style={{ width: `${pct}%`, "--d": `${i * 0.1}s` }} />
-                        </div>
-                        <span className="sl-lang-yr">{safe(l.years) || "1"}y</span>
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div className="sp1-exp-content">
+                      <div className="sp1-exp-role-row">
+                        <h3 className="sp1-exp-role">{safe(e?.role) || "Role"}</h3>
+                        {isCurrent(e) && (
+                          <span className="sp1-live-pill">
+                            <span className="sp1-live-dot" />Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="sp1-exp-company">
+                        <MdBusiness size={12} />
+                        <span>{safe(e?.company)}</span>
+                      </div>
+                      <div className="sp1-exp-dates">
+                        <MdCalendarToday size={11} />
+                        <span>
+                          {safe(e?.start)}{safe(e?.end) ? ` – ${safe(e.end)}` : " – Present"}
+                        </span>
+                      </div>
+                      {safe(e?.description) && (
+                        <p className="sp1-exp-desc">{safe(e.description)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sp1-exp-corner sp1-corner-tl" />
+                  <div className="sp1-exp-corner sp1-corner-br" />
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══ PROJECTS ════════════════════════════════════════════════════════ */}
+      {projects.length > 0 && (
+        <section id="sp1-sec-projects" className="sp1-section sp1-section-alt">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Projects" icon={<FaLayerGroup size={15} />} accent="var(--sp1-violet)" />
+            <div className="sp1-projects-grid">
+              {projects.map((p, i) => (
+                <ProjectCard key={p?.id ?? i} index={i + 1} p={p} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══ ACHIEVEMENTS ════════════════════════════════════════════════════ */}
+      {achievements.length > 0 && (
+        <section id="sp1-sec-ach" className="sp1-section">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Achievements" icon={<MdEmojiEvents size={18} />} accent="var(--sp1-gold)" />
+            <div className="sp1-ach-grid">
+              {achievements.map((a, i) => (
+                <div key={a?.id ?? i} className="sp1-ach-card" style={{ "--i": i }}>
+                  <div className="sp1-ach-top-bar">
+                    <div className="sp1-ach-icon">
+                      <MdStar size={18} />
+                    </div>
+                    {(safe(a?.date) || safe(a?.year)) && (
+                      <span className="sp1-ach-year">{safe(a?.date) || safe(a?.year)}</span>
+                    )}
+                  </div>
+                  <div className="sp1-ach-body">
+                    <h4 className="sp1-ach-title">{safe(a?.title) || "Achievement"}</h4>
+                    {safe(a?.issuer) && (
+                      <div className="sp1-ach-issuer">
+                        <span className="sp1-ach-beam" />
+                        {safe(a.issuer)}
+                      </div>
+                    )}
+                    {safe(a?.description) && (
+                      <p className="sp1-ach-desc">{safe(a.description)}</p>
+                    )}
+                  </div>
+                  {safe(a?.link) && (
+                    <div className="sp1-ach-actions">
+                      <a
+                        href={safe(a.link)}
+                        target="_blank" rel="noopener noreferrer"
+                        className="sp1-ach-link"
+                      >
+                        <MdLink size={12} /> View
+                      </a>
+                    </div>
+                  )}
+                  <div className="sp1-ach-prism" />
+                  <div className="sp1-ach-corner sp1-corner-tl" />
+                  <div className="sp1-ach-corner sp1-corner-br" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══ EDUCATION ══════════════════════════════════════════════════════ */}
+      {education.length > 0 && (
+        <section id="sp1-sec-edu" className="sp1-section sp1-section-alt">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Education" icon={<MdSchool size={18} />} accent="var(--sp1-violet)" />
+            <div className="sp1-edu-list">
+              {education.map((e, i) => (
+                <div key={e?.id ?? i} className="sp1-edu-card" style={{ "--i": i }}>
+                  <div className="sp1-edu-num">0{i + 1}</div>
+                  <div className="sp1-edu-body">
+                    <MacBar label={`DEGREE_${String(i + 1).padStart(2, "0")}`} />
+                    <div className="sp1-edu-content">
+                      <h3 className="sp1-edu-degree">{safe(e?.degree) || "Degree"}</h3>
+                      <div className="sp1-edu-inst">
+                        <MdBusiness size={12} />
+                        <span>{safe(e?.institution)}</span>
+                      </div>
+                      {safe(e?.year) && (
+                        <span className="sp1-edu-year">
+                          <MdCalendarToday size={11} /> {safe(e.year)}
+                        </span>
+                      )}
+                      {safe(e?.details) && (
+                        <p className="sp1-edu-details">{safe(e.details)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sp1-edu-corner sp1-corner-tl" />
+                  <div className="sp1-edu-corner sp1-corner-br" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══ PROGRAMMING LANGUAGES ══════════════════════════════════════════ */}
+      {languages.length > 0 && (
+        <section id="sp1-sec-langs" className="sp1-section">
+          <div className="sp1-section-inner">
+            <SectionTitle title="Programming Languages" icon={<MdCode size={18} />} accent="var(--sp1-electric)" />
+            <GlassCard sx={{ padding: "0" }}>
+              <div className="sp1-langs-table-wrap">
+                <table className="sp1-langs-table">
+                  <thead>
+                    <tr>
+                      <th>Language</th>
+                      <th>Level</th>
+                      <th>Experience</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {languages.map((l, i) => (
+                      <tr key={l?.id ?? i}>
+                        <td className="sp1-lang-name-cell">{safe(l?.language) || "—"}</td>
+                        <td className="sp1-lang-level-cell">{safe(l?.level) || "—"}</td>
+                        <td className="sp1-lang-yr-cell">
+                          {typeof l?.years === "number" ? `${l.years} yr` : safe(l?.years) || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          </div>
+        </section>
+      )}
+
+      {/* ══ CONTACT ══════════════════════════════════════════════════════════ */}
+      <section id="sp1-sec-contact" className="sp1-section sp1-section-alt sp1-contact-section">
+        <div className="sp1-section-inner">
+          <SectionTitle title="Contact" icon={<MdEmail size={18} />} accent="var(--sp1-coral)" />
+          <div className="sp1-contact-layout">
+
+            {/* Left: headline */}
+            <div className="sp1-contact-left">
+              <div className="sp1-contact-big">
+                Ready to<br /><em>collaborate?</em>
+              </div>
+              <p className="sp1-contact-sub">
+                Reach out through any channel. I respond within 24 hours.
+              </p>
+              <div className="sp1-contact-deco" />
+            </div>
+
+            {/* Right: channel cards */}
+            <div className="sp1-contact-channels">
+              {contactEmail && (
+                <a href={`mailto:${contactEmail}`} className="sp1-channel sp1-ch-email">
+                  <div className="sp1-ch-icon"><MdEmail size={20} /></div>
+                  <div className="sp1-ch-body">
+                    <span className="sp1-ch-label">Email</span>
+                    <span className="sp1-ch-val">{contactEmail}</span>
+                  </div>
+                  <MdArrowOutward size={14} className="sp1-ch-arrow" />
+                </a>
+              )}
+              {safe(socials?.phone) && (
+                <a href={`tel:${safe(socials.phone)}`} className="sp1-channel sp1-ch-phone">
+                  <div className="sp1-ch-icon"><MdPhone size={20} /></div>
+                  <div className="sp1-ch-body">
+                    <span className="sp1-ch-label">Phone</span>
+                    <span className="sp1-ch-val">{safe(socials.phone)}</span>
+                  </div>
+                  <MdArrowOutward size={14} className="sp1-ch-arrow" />
+                </a>
+              )}
+              {safe(socials?.github) && (
+                <a href={safe(socials.github)} target="_blank" rel="noopener noreferrer" className="sp1-channel sp1-ch-gh">
+                  <div className="sp1-ch-icon"><FaGithub size={18} /></div>
+                  <div className="sp1-ch-body">
+                    <span className="sp1-ch-label">GitHub</span>
+                    <span className="sp1-ch-val">View Profile</span>
+                  </div>
+                  <MdArrowOutward size={14} className="sp1-ch-arrow" />
+                </a>
+              )}
+              {safe(socials?.linkedin) && (
+                <a href={safe(socials.linkedin)} target="_blank" rel="noopener noreferrer" className="sp1-channel sp1-ch-li">
+                  <div className="sp1-ch-icon"><FaLinkedin size={18} /></div>
+                  <div className="sp1-ch-body">
+                    <span className="sp1-ch-label">LinkedIn</span>
+                    <span className="sp1-ch-val">Connect</span>
+                  </div>
+                  <MdArrowOutward size={14} className="sp1-ch-arrow" />
+                </a>
               )}
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          SKILLS FULL MATRIX
-          ════════════════════════════════════════════════════════════════════════ */}
-      {(parseList(skills.frontend).length > 0 || parseList(skills.backend).length > 0 || parseList(skills.tools).length > 0) && (
-        <section id="sl-sec-skills" className="sl-section sl-section-alt">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdCode size={13} /> Skills</div>
-              <h2 className="sl-sec-title">Tech Arsenal</h2>
-            </div>
-            <div className="sl-skills-matrix">
-              {[
-                { label: "Frontend", items: parseList(skills.frontend), cls: "sl-chip-fe" },
-                { label: "Backend",  items: parseList(skills.backend),  cls: "sl-chip-be" },
-                { label: "Tools",    items: parseList(skills.tools),    cls: "sl-chip-tool" },
-                ...(parseList(skills.database).length ? [{ label: "Database", items: parseList(skills.database), cls: "sl-chip-db" }] : []),
-              ].filter(g => g.items.length > 0).map((group, gi) => (
-                <div key={gi} className="sl-skill-group">
-                  <div className="sl-sg-label">{group.label}</div>
-                  <div className="sl-sg-chips">
-                    {group.items.map((s, i) => (
-                      <span key={i} className={`sl-chip ${group.cls}`} style={{ animationDelay: `${(gi * 0.1) + (i * 0.04)}s` }}>
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          EXPERIENCE
-          ════════════════════════════════════════════════════════════════════════ */}
-      {experience.length > 0 && (
-        <section id="sl-sec-exp" className="sl-section">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdWork size={13} /> Experience</div>
-              <h2 className="sl-sec-title">Work History</h2>
-            </div>
-            <div className="sl-timeline">
-              {experience.map((e, i) => (
-                <div key={i} className={`sl-tl-item${isCurrent(e) ? " sl-current" : ""}`}
-                  style={{ animationDelay: `${i * 0.08}s` }}>
-                  <div className="sl-tl-left">
-                    <div className="sl-tl-node">
-                      {isCurrent(e) ? <MdFlashOn size={12} /> : <MdWork size={10} />}
-                    </div>
-                    {i < experience.length - 1 && <div className="sl-tl-connector" />}
-                  </div>
-                  <div className="sl-tl-card">
-                    <div className="sl-tl-card-top">
-                      <div>
-                        <div className="sl-tl-role">{safe(e.role)}</div>
-                        <div className="sl-tl-company"><MdBusiness size={11} />{safe(e.company)}</div>
-                      </div>
-                      <div className="sl-tl-right">
-                        <span className="sl-tl-dates">
-                          <MdCalendarToday size={10} />
-                          {safe(e.start)}{safe(e.end) ? ` – ${safe(e.end)}` : ""}
-                        </span>
-                        {isCurrent(e) && <span className="sl-live-pill"><span className="sl-live-dot" />Active</span>}
-                      </div>
-                    </div>
-                    {safe(e.description) && <p className="sl-tl-desc">{safe(e.description)}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          PROJECTS
-          ════════════════════════════════════════════════════════════════════════ */}
-      {projects.length > 0 && (
-        <section id="sl-sec-projects" className="sl-section sl-section-alt">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><FaLayerGroup size={11} /> Projects</div>
-              <h2 className="sl-sec-title">Featured Work</h2>
-            </div>
-            <div className="sl-projects-grid">
-              {projects.map((p, i) => (
-                <div key={i} className={`sl-proj-card${p.featured ? " sl-proj-featured" : ""}`}
-                  style={{ animationDelay: `${i * 0.06}s` }}>
-                  <div className="sl-proj-header">
-                    <div className="sl-proj-terminal-dots">
-                      <span /><span /><span />
-                    </div>
-                    <span className="sl-proj-file">
-                      {safe(p.title).toLowerCase().replace(/\s+/g, "_")}.js
-                    </span>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {p.featured && (
-                        <span className="sl-proj-badge" style={{
-                          background: "rgba(255,200,68,0.15)", color: "#ffc844",
-                          border: "1px solid rgba(255,200,68,0.35)"
-                        }}>★ Featured</span>
-                      )}
-                      <span className={`sl-proj-badge ${safe(p.status) === "Completed" ? "done" : "wip"}`}>
-                        {safe(p.status) || "WIP"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="sl-proj-body">
-                    <div className="sl-proj-title-row">
-                      <h3 className="sl-proj-title">{safe(p.title)}</h3>
-                      <div className="sl-proj-links">
-                        {safe(p.liveUrl) && (
-                          <a href={safe(p.liveUrl)} target="_blank" rel="noopener noreferrer"
-                            className="sl-proj-link sl-proj-link-live" title="Live Demo">
-                            <MdOpenInNew size={13} />
-                          </a>
-                        )}
-                        {safe(p.repoUrl) && (
-                          <a href={safe(p.repoUrl)} target="_blank" rel="noopener noreferrer"
-                            className="sl-proj-link sl-proj-link-repo" title="Repository">
-                            <FaGithub size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    {safe(p.description) && <p className="sl-proj-desc">{safe(p.description)}</p>}
-                    {safe(p.tech) && (
-                      <div className="sl-proj-tech">
-                        {safe(p.tech).split(",").map(t => t.trim()).filter(Boolean).map((t, j) => (
-                          <span key={j} className="sl-chip sl-chip-be">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Live + Repo text links at bottom if both exist */}
-                    {(safe(p.liveUrl) || safe(p.repoUrl)) && (
-                      <div className="sl-proj-url-row">
-                        {safe(p.liveUrl) && (
-                          <a href={safe(p.liveUrl)} target="_blank" rel="noopener noreferrer" className="sl-proj-url-link sl-url-live">
-                            <MdOpenInNew size={11} /> Live Demo
-                          </a>
-                        )}
-                        {safe(p.repoUrl) && (
-                          <a href={safe(p.repoUrl)} target="_blank" rel="noopener noreferrer" className="sl-proj-url-link sl-url-repo">
-                            <FaGithub size={11} /> Source Code
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="sl-proj-shine" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          ACHIEVEMENTS
-          ════════════════════════════════════════════════════════════════════════ */}
-      {achievements.length > 0 && (
-        <section id="sl-sec-ach" className="sl-section">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdEmojiEvents size={13} /> Awards</div>
-              <h2 className="sl-sec-title">Achievements</h2>
-            </div>
-            <div className="sl-ach-masonry">
-              {achievements.map((a, i) => (
-                <div key={i} className="sl-ach-card" style={{ animationDelay: `${i * 0.07}s` }}>
-                  <div className="sl-ach-glow-bar" />
-                  <div className="sl-ach-top">
-                    <div className="sl-ach-icon"><MdStar size={16} /></div>
-                    <div className="sl-ach-info">
-                      <h4 className="sl-ach-title">{safe(a.title)}</h4>
-                      {safe(a.issuer) && <span className="sl-ach-issuer">{safe(a.issuer)}</span>}
-                    </div>
-                    {/* admin stores date or year */}
-                    {(safe(a.date) || safe(a.year)) && (
-                      <span className="sl-ach-date">{safe(a.date) || safe(a.year)}</span>
-                    )}
-                  </div>
-                  {safe(a.description) && <p className="sl-ach-desc">{safe(a.description)}</p>}
-                  <div className="sl-ach-actions">
-                    {safe(a.link) && (
-                      <a href={safe(a.link)} target="_blank" rel="noopener noreferrer" className="sl-ach-link sl-ach-link-ext">
-                        <MdLink size={12} /> View Link
-                      </a>
-                    )}
-                    {safe(a.certificateFileName) && (
-                      <a
-                        href={`${API_BASE}/portfolio/${username}/achievements/${a.id}/certificate`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="sl-ach-link">
-                        <MdPictureAsPdf size={12} /> Certificate
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          EDUCATION
-          ════════════════════════════════════════════════════════════════════════ */}
-      {education.length > 0 && (
-        <section id="sl-sec-edu" className="sl-section sl-section-alt">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdSchool size={13} /> Education</div>
-              <h2 className="sl-sec-title">Academic Journey</h2>
-            </div>
-            <div className="sl-edu-stack">
-              {education.map((e, i) => (
-                <div key={i} className="sl-edu-card" style={{ animationDelay: `${i * 0.09}s` }}>
-                  <div className="sl-edu-num">0{i + 1}</div>
-                  <div className="sl-edu-body">
-                    <div className="sl-edu-degree">{safe(e.degree)}</div>
-                    <div className="sl-edu-inst"><MdBusiness size={11} />{safe(e.institution)}</div>
-                    {safe(e.year) && (
-                      <span className="sl-edu-year"><MdCalendarToday size={10} />{safe(e.year)}</span>
-                    )}
-                    {safe(e.details) && <p className="sl-edu-detail">{safe(e.details)}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          CONTACT
-          ════════════════════════════════════════════════════════════════════════ */}
-      {(safe(socials.email) || safe(socials.phone) || safe(socials.github) ||
-        safe(socials.linkedin) || safe(socials.website)) && (
-        <section id="sl-sec-contact" className="sl-section sl-contact-section">
-          <div className="sl-section-inner">
-            <div className="sl-sec-head">
-              <div className="sl-sec-tag"><MdContacts size={13} /> Contact</div>
-              <h2 className="sl-sec-title">Let's Connect</h2>
-            </div>
-            <div className="sl-contact-layout">
-              <div className="sl-contact-headline">
-                <div className="sl-contact-big">Ready to<br /><em>collaborate?</em></div>
-                <p className="sl-contact-sub">Reach out through any channel below. I respond within 24 hours.</p>
-                <div className="sl-contact-deco" />
-              </div>
-              <div className="sl-contact-channels">
-                {safe(socials.email) && (
-                  <a href={`mailto:${safe(socials.email)}`} className="sl-channel sl-ch-email">
-                    <div className="sl-ch-icon"><MdEmail size={20} /></div>
-                    <div className="sl-ch-body">
-                      <span className="sl-ch-label">Email</span>
-                      <span className="sl-ch-val">{safe(socials.email)}</span>
-                    </div>
-                    <MdArrowOutward size={14} className="sl-ch-arrow" />
-                  </a>
-                )}
-                {safe(socials.phone) && (
-                  <a href={`tel:${safe(socials.phone)}`} className="sl-channel sl-ch-phone">
-                    <div className="sl-ch-icon"><MdPhone size={20} /></div>
-                    <div className="sl-ch-body">
-                      <span className="sl-ch-label">Phone</span>
-                      <span className="sl-ch-val">{safe(socials.phone)}</span>
-                    </div>
-                    <MdArrowOutward size={14} className="sl-ch-arrow" />
-                  </a>
-                )}
-                {safe(socials.github) && (
-                  <a href={safe(socials.github)} target="_blank" rel="noopener noreferrer" className="sl-channel sl-ch-gh">
-                    <div className="sl-ch-icon"><FaGithub size={18} /></div>
-                    <div className="sl-ch-body">
-                      <span className="sl-ch-label">GitHub</span>
-                      <span className="sl-ch-val">View Profile</span>
-                    </div>
-                    <MdArrowOutward size={14} className="sl-ch-arrow" />
-                  </a>
-                )}
-                {safe(socials.linkedin) && (
-                  <a href={safe(socials.linkedin)} target="_blank" rel="noopener noreferrer" className="sl-channel sl-ch-li">
-                    <div className="sl-ch-icon"><FaLinkedin size={18} /></div>
-                    <div className="sl-ch-body">
-                      <span className="sl-ch-label">LinkedIn</span>
-                      <span className="sl-ch-val">Connect</span>
-                    </div>
-                    <MdArrowOutward size={14} className="sl-ch-arrow" />
-                  </a>
-                )}
-                {safe(socials.website) && (
-                  <a href={safe(socials.website)} target="_blank" rel="noopener noreferrer" className="sl-channel sl-ch-web">
-                    <div className="sl-ch-icon"><FaGlobe size={16} /></div>
-                    <div className="sl-ch-body">
-                      <span className="sl-ch-label">Website</span>
-                      <span className="sl-ch-val">Visit</span>
-                    </div>
-                    <MdArrowOutward size={14} className="sl-ch-arrow" />
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          FOOTER
-          ════════════════════════════════════════════════════════════════════════ */}
-      <footer className="sl-footer">
-        <div className="sl-footer-inner">
-          <span>Crafted by <strong>{safe(profile.name) || username}</strong></span>
-          <span className="sl-footer-badge">
+      {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
+      <footer className="sp1-footer">
+        <div className="sp1-footer-inner">
+          <span>Crafted by <strong>{name}</strong></span>
+          <span className="sp1-footer-badge">
             <MdWorkspacePremium size={11} /> SOLARIS PREMIUM
           </span>
         </div>
       </footer>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          RESUME PREVIEW DIALOG (ported from Home.jsx)
-          ════════════════════════════════════════════════════════════════════════ */}
-      <Dialog
-        open={resumePreviewOpen}
-        onClose={closeResumePreview}
-        fullWidth maxWidth="md"
-        PaperProps={{
-          sx: {
-            background: theme === "dark" ? "#0d0d14" : "#ffffff",
-            borderRadius: "20px",
-            border: theme === "dark"
-              ? "1px solid rgba(255,107,74,0.22)"
-              : "1px solid rgba(0,0,0,0.1)",
-            overflow: "hidden",
-            boxShadow: theme === "dark"
-              ? "0 0 80px rgba(255,107,74,0.08)"
-              : "0 24px 80px rgba(0,0,0,0.12)",
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: theme === "dark" ? "rgba(255,107,74,0.06)" : "rgba(0,0,0,0.03)",
-          borderBottom: theme === "dark" ? "1px solid rgba(255,107,74,0.14)" : "1px solid rgba(0,0,0,0.08)",
-          color: theme === "dark" ? "#f1f5f9" : "#0f172a",
-          fontFamily: "'Clash Display', 'Outfit', sans-serif",
-          fontWeight: 700, fontSize: "0.95rem",
-          py: 1.5, px: 2.5,
-        }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <MdPictureAsPdf size={16} style={{ color: "#ff6b4a" }} />
-            {resumePreviewTitle}
-          </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <IconButton size="small" title="Download"
-              sx={{ color: "#ff6b4a" }} onClick={onDownloadResume}>
-              <MdDownload size={16} />
-            </IconButton>
-            <IconButton size="small" onClick={closeResumePreview}
-              sx={{ color: theme === "dark" ? "rgba(203,213,225,0.5)" : "rgba(0,0,0,0.4)" }}>
-              <MdClose size={16} />
-            </IconButton>
-          </div>
-        </DialogTitle>
-
-        {/* Dialog content — same scrollbar-hidden iframe pattern from Home.jsx */}
-        <DialogContent sx={{ p: 0, height: { xs: 480, md: 580 }, overflow: "hidden", background: "black" }}>
-          {resumePreviewLoading ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
-              <CircularProgress size={24} sx={{ color: "#ff6b4a" }} />
-              <span style={{ color: "#ff6b4a", fontFamily: "monospace", fontSize: "0.85rem" }}>Loading resume…</span>
-            </div>
-         ) : resumePreviewBlobUrl ? (
-  isMobileDevice()
-    ? <iframe
-        src={`https://docs.google.com/viewer?url=${encodeURIComponent(resumeViewUrlBusted)}&embedded=true`}
-        width="100%" height="100%"
-        style={{ border: "none", display: "block" }}
-        title="Resume"
-      />
-    : <div style={{
-        width: "100%", height: "100%",
-        overflowY: "scroll", overflowX: "hidden",
-        position: "relative",
-        scrollbarWidth: "none", msOverflowStyle: "none",
-      }}>
-        <div style={{
-          position: "absolute", right: 0, top: 0,
-          width: 14, height: "100%",
-          background: theme === "dark" ? "#000" : "#fff",
-          zIndex: 10, pointerEvents: "none",
-        }} />
-        <iframe
-          title="Resume Preview"
-          src={resumePreviewBlobUrl}
-          style={{ width: "100%", height: "200%", border: "none", display: "block" }}
-        />
-      </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%",
-              color: "#64748b", fontFamily: "monospace", fontSize: "0.85rem" }}>
-              Preview not available.
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ══ RESUME PREVIEW DIALOG ══════════════════════════════════════════ */}
+<ResumePreviewDialog
+  open={resumePreviewOpen}
+  title={resumePreviewTitle}
+  onClose={closeResumePreview}
+  url={viewResumeUrl(username)}
+  blobUrl={resumePreviewBlobUrl}
+  loading={resumePreviewLoading}
+/>
     </div>
   );
 }
