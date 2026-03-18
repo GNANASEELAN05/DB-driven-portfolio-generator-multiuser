@@ -8,7 +8,9 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import Register from "./pages/Register";
 import AdminDashboardPremium1 from "./pages/AdminDashboardPremium1";
+import AdminDashboardPremium2 from "./pages/AdminDashboardPremium2";
 import HomePremium1 from "./pages/HomePremium1";
+import HomePremium2 from "./pages/HomePremium2";
 
 const makeTheme = (mode, flavor = "viewer") => {
   const viewerPrimary = "#7C3AED";
@@ -58,18 +60,27 @@ export default function App() {
   }, []);
 
   const viewerTheme = useMemo(() => makeTheme(viewerDark ? "dark" : "light", "viewer"), [viewerDark]);
-  const adminTheme = useMemo(() => makeTheme(adminDark ? "dark" : "light", "admin"), [adminDark]);
+  const adminTheme  = useMemo(() => makeTheme(adminDark  ? "dark" : "light", "admin"),  [adminDark]);
 
   const toggleViewerTheme = () => {
-    setViewerDark((prev) => { const next = !prev; localStorage.setItem("viewer_theme", next ? "dark" : "light"); return next; });
+    setViewerDark((prev) => {
+      const next = !prev;
+      localStorage.setItem("viewer_theme", next ? "dark" : "light");
+      return next;
+    });
   };
   const toggleAdminTheme = () => {
-    setAdminDark((prev) => { const next = !prev; localStorage.setItem("admin_theme", next ? "dark" : "light"); return next; });
+    setAdminDark((prev) => {
+      const next = !prev;
+      localStorage.setItem("admin_theme", next ? "dark" : "light");
+      return next;
+    });
   };
 
   const getAuthUser = () => (localStorage.getItem("auth_user") || "").trim().toLowerCase();
-  const hasToken = () => !!localStorage.getItem("token");
+  const hasToken    = () => !!localStorage.getItem("token");
 
+  // ── Redirect "/" to best available page ───────────────────────────────────
   const RedirectToBest = () => {
     const authUser = getAuthUser();
     if (!hasToken() || !authUser) return <Navigate to="/register" replace />;
@@ -80,12 +91,14 @@ export default function App() {
     return <Navigate to={`/${authUser}/adminpanel`} replace />;
   };
 
+  // ── Already logged-in users skip login/register ───────────────────────────
   const IfAuthedGoDashboard = ({ children }) => {
     const authUser = getAuthUser();
     if (hasToken() && authUser) return <Navigate to={`/${authUser}/adminpanel`} replace />;
     return children;
   };
 
+  // ── Protect admin routes ──────────────────────────────────────────────────
   const RequireAuth = ({ children }) => {
     const { username } = useParams();
     const authUser = getAuthUser();
@@ -95,6 +108,7 @@ export default function App() {
     return children;
   };
 
+  // ── /:username viewer — redirect owner to their best premium ──────────────
   const PremiumRedirectWrapper = () => {
     const { username } = useParams();
     const authUser = getAuthUser();
@@ -110,22 +124,57 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ── Root ── */}
         <Route path="/" element={<RedirectToBest />} />
 
-        <Route path="/register" element={<IfAuthedGoDashboard><ThemeProvider theme={viewerTheme}><CssBaseline /><Register /></ThemeProvider></IfAuthedGoDashboard>} />
+        {/* ── Auth ── */}
+        <Route path="/register" element={
+          <IfAuthedGoDashboard>
+            <ThemeProvider theme={viewerTheme}><CssBaseline /><Register /></ThemeProvider>
+          </IfAuthedGoDashboard>
+        } />
+        <Route path="/admin-login" element={
+          <IfAuthedGoDashboard>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><AdminLogin /></ThemeProvider>
+          </IfAuthedGoDashboard>
+        } />
 
-        <Route path="/admin-login" element={<IfAuthedGoDashboard><ThemeProvider theme={adminTheme}><CssBaseline /><AdminLogin /></ThemeProvider></IfAuthedGoDashboard>} />
+        {/* ── Public viewer ── */}
+        <Route path="/:username" element={
+          <ThemeProvider theme={viewerTheme}><CssBaseline /><PremiumRedirectWrapper /></ThemeProvider>
+        } />
+        <Route path="/:username/premium1" element={
+          <ThemeProvider theme={viewerTheme}><CssBaseline /><HomePremium1 toggleTheme={toggleViewerTheme} /></ThemeProvider>
+        } />
+        <Route path="/:username/premium2" element={
+          <ThemeProvider theme={viewerTheme}><CssBaseline /><HomePremium2 toggleTheme={toggleViewerTheme} /></ThemeProvider>
+        } />
 
-        <Route path="/:username" element={<ThemeProvider theme={viewerTheme}><CssBaseline /><PremiumRedirectWrapper /></ThemeProvider>} />
+        {/* ── Admin panel login (per-user alias) ── */}
+        <Route path="/:username/adminpanel/login" element={
+          <IfAuthedGoDashboard>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><AdminLogin /></ThemeProvider>
+          </IfAuthedGoDashboard>
+        } />
 
-        <Route path="/:username/premium1" element={<ThemeProvider theme={viewerTheme}><CssBaseline /><HomePremium1 toggleTheme={toggleViewerTheme} /></ThemeProvider>} />
+        {/* ── Admin dashboards ── */}
+        <Route path="/:username/adminpanel" element={
+          <RequireAuth>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><AdminDashboard setDarkMode={toggleAdminTheme} /></ThemeProvider>
+          </RequireAuth>
+        } />
+        <Route path="/:username/adminpanel/premium1" element={
+          <RequireAuth>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><AdminDashboardPremium1 setDarkMode={toggleAdminTheme} /></ThemeProvider>
+          </RequireAuth>
+        } />
+        <Route path="/:username/adminpanel/premium2" element={
+          <RequireAuth>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><AdminDashboardPremium2 setDarkMode={toggleAdminTheme} /></ThemeProvider>
+          </RequireAuth>
+        } />
 
-        <Route path="/:username/adminpanel/login" element={<IfAuthedGoDashboard><ThemeProvider theme={adminTheme}><CssBaseline /><AdminLogin /></ThemeProvider></IfAuthedGoDashboard>} />
-
-        <Route path="/:username/adminpanel" element={<RequireAuth><ThemeProvider theme={adminTheme}><CssBaseline /><AdminDashboard setDarkMode={toggleAdminTheme} /></ThemeProvider></RequireAuth>} />
-
-        <Route path="/:username/adminpanel/premium1" element={<RequireAuth><ThemeProvider theme={adminTheme}><CssBaseline /><AdminDashboardPremium1 setDarkMode={toggleAdminTheme} /></ThemeProvider></RequireAuth>} />
-
+        {/* ── Fallback ── */}
         <Route path="*" element={<RedirectToBest />} />
       </Routes>
     </BrowserRouter>

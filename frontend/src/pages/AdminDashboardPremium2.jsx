@@ -1,0 +1,2437 @@
+// src/pages/AdminDashboard.jsx
+import "./AdminDashboardPremium2.css";           // ← NEW: portfolio-matching styles
+import React, { useState } from "react";
+import TextareaAutosize from "@mui/material/TextareaAutosize";
+import { useParams } from "react-router-dom";
+
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  CssBaseline,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  Grid,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+  Alert,
+  FormControl,
+  InputLabel,
+  LinearProgress,
+} from "@mui/material";
+
+import {
+  MdMenu,
+  MdDashboard,
+  MdWork,
+  MdDescription,
+  MdLightMode,
+  MdDarkMode,
+  MdAdd,
+  MdEdit,
+  MdDelete,
+  MdLogout,
+  MdSave,
+  MdUpload,
+  MdEmojiEvents,
+  MdCode,
+  MdLink,
+  MdPerson,
+  MdBuild,
+  MdRefresh,
+  MdVisibility,
+  MdArrowUpward,
+  MdMoreHoriz,
+  MdStar,
+  MdClose,
+  MdSchool,
+  MdBadge,
+  MdCheckCircle,
+  MdImage,
+} from "react-icons/md";
+
+
+import {
+  getAllProjectsAdmin,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProfile,
+  updateProfile,
+  getSkills,
+  updateSkills,
+  getSocials,
+  updateSocials,
+  getAchievements,
+  saveAchievements,
+  getLanguageExperience,
+  saveLanguageExperience,
+  uploadResume,
+  viewResumeUrl,
+  listResumesAdmin,
+  deleteResumeById,
+  setPrimaryResume,
+  viewResumeByIdUrl,
+  getEducation,
+  updateEducation,
+  getExperience,
+  updateExperience,
+} from "../api/portfolio";
+
+import http from "../api/http";
+
+// ── constants (unchanged) ──────────────────────────────────────────────────
+const drawerWidth = 280;
+
+const BRAND_PRIMARY = "#c680f2";
+const BRAND_DARK = "#7A3F91";
+
+const bumpContentVersion = () => {
+  localStorage.setItem("content_version", String(Date.now()));
+};
+
+const formatDate = (iso) => {
+  try {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+  } catch {
+    return iso;
+  }
+};
+
+// ── TextField sx (unchanged logic, updated radius token) ──────────────────
+const tfSx = {
+  "& .MuiInputLabel-root": { transformOrigin: "top left" },
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "14px",
+    minHeight: 44,
+    alignItems: "center",
+    background: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(241,48,36,0.04)",
+    "& .MuiOutlinedInput-input": { boxSizing: "border-box", padding: "12px 14px", lineHeight: 1.35, fontSize: "14px" },
+    "& .MuiOutlinedInput-inputMultiline": { boxSizing: "border-box", padding: "12px 14px", lineHeight: 1.45, fontSize: "14px" },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.12)",
+      transition: "border-color 0.22s ease",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#f13024" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#f13024", borderWidth: "1.5px" },
+  },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#f97316" },
+};
+
+// ── SmallTextField (unchanged) ─────────────────────────────────────────────
+function SmallTextField(props) {
+  const { value, label, multiline, minRows, ...rest } = props;
+  const v = value ?? "";
+  const shrink = Boolean(String(v).length);
+  return (
+    <TextField
+      {...rest}
+      label={label}
+      value={v}
+      fullWidth
+      size="small"
+      variant="outlined"
+      multiline={multiline}
+      minRows={minRows}
+      InputLabelProps={{ shrink, ...(props.InputLabelProps || {}) }}
+      sx={{
+        ...tfSx,
+        ...(multiline ? { "& .MuiOutlinedInput-root": { alignItems: "flex-start" } } : null),
+        ...(props.sx || {}),
+      }}
+    />
+  );
+}
+
+// ── StatCard ───────────────────────────────────────────────────────────────
+function StatCard({ title, value, subtitle, icon, trendLabel }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Box
+      className={`adm-stat adm-neon-top ${isDark ? "" : "adm-stat-light"}`}
+      sx={{ p: { xs: 2, md: 2.5 } }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1.8}>
+        <Box className="adm-stat-icon">{icon}</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mb: 0.3 }}>
+            <Typography className="adm-stat-label">{title}</Typography>
+            {trendLabel && <Chip label={trendLabel} size="small" className="adm-stat-chip" />}
+          </Stack>
+          <Typography className="adm-stat-value">{value}</Typography>
+          {subtitle && <Typography className="adm-stat-sub">{subtitle}</Typography>}
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
+// ── SectionHeader ──────────────────────────────────────────────────────────
+function SectionHeader({ title, subtitle, right }) {
+  return (
+    <Box className="adm-sec-header">
+      <Box>
+        <Typography className="adm-sec-title">{title}</Typography>
+        {subtitle && <Typography className="adm-sec-sub">{subtitle}</Typography>}
+      </Box>
+      {right && <Box sx={{ display: "flex", justifyContent: "flex-end" }}>{right}</Box>}
+    </Box>
+  );
+}
+
+// ── SimpleItemDialog ───────────────────────────────────────────────────────
+function SimpleItemDialog({ open, title, children, onClose, onSave, saveText = "Save" }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="md"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title" sx={{ pb: 1 }}>{title}</DialogTitle>
+      <DialogContent sx={{ pt: 4, overflow: "visible" }}>{children}</DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="adm-btn-outlined" startIcon={<MdClose />}>Cancel</Button>
+        <Button onClick={onSave} size="small" className="adm-btn-primary" startIcon={<MdSave />}>{saveText}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ConfirmDialog ──────────────────────────────────────────────────────────
+function ConfirmDialog({ open, title, description, confirmText, onClose, onConfirm }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="xs"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title">{title}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ opacity: 0.82 }}>{description}</Typography>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="adm-btn-outlined">Cancel</Button>
+        <Button onClick={onConfirm} size="small" className="adm-btn-error">{confirmText}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ProjectEditorDialog (logic unchanged) ──────────────────────────────────
+function ProjectEditorDialog({ open, mode, initial, onClose, onSave }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const [form, setForm] = useState(
+    initial || { title: "", description: "", tech: "", liveUrl: "", repoUrl: "", featured: true }
+  );
+
+  React.useEffect(() => {
+    setForm(initial || { title: "", description: "", tech: "", liveUrl: "", repoUrl: "", featured: true });
+  }, [initial, open]);
+
+  const handleChange = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const canSave = form.title.trim().length >= 2;
+
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="sm"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title">
+        {mode === "edit" ? "Edit Project" : "Add Project"}
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 4, overflow: "visible" }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}><SmallTextField label="Project Title" value={form.title} onChange={handleChange("title")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Tech Stack (comma separated)" value={form.tech} onChange={handleChange("tech")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Repo URL" value={form.repoUrl} onChange={handleChange("repoUrl")} /></Grid>
+          <Grid item xs={12} md={6}><SmallTextField label="Live URL" value={form.liveUrl} onChange={handleChange("liveUrl")} /></Grid>
+
+          <Grid item xs={12} sx={{ width: "100%" }}>
+            <SmallTextField
+              label="Description" value={form.description || ""} onChange={handleChange("description")}
+              fullWidth multiline
+              InputProps={{ inputComponent: TextareaAutosize, inputProps: { minRows: 2 } }}
+              sx={{ width: "100%", "& .MuiInputBase-root": { width: "100%", alignItems: "flex-start" }, "& textarea": { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "break-word" } }}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Stack direction="row" spacing={1.2} alignItems="center">
+              <Chip
+                label={form.featured ? "Featured: YES" : "Featured: NO"}
+                className={form.featured ? "adm-chip-yes" : "adm-chip-no"}
+              />
+              <Button size="small" className="adm-btn-outlined"
+                onClick={() => setForm((p) => ({ ...p, featured: !p.featured }))}>
+                Toggle Featured
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="adm-btn-outlined" startIcon={<MdClose />}>Cancel</Button>
+        <Button disabled={!canSave} onClick={() => onSave(form)} size="small" className="adm-btn-primary" startIcon={<MdSave />}>
+          {mode === "edit" ? "Save Changes" : "Add Project"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ResumePreviewDialog (logic unchanged) ──────────────────────────────────
+function ResumePreviewDialog({ open, title, onClose, url, blobUrl, loading }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const src = blobUrl || url;
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="md"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title" sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, py: 1.5 }}>
+        {title}
+      </DialogTitle>
+      <DialogContent sx={{ height: { xs: 480, md: 580 }, p: 0, overflow: "hidden", bgcolor: "black" }}>
+        {loading ? (
+          <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Loading preview…</Typography></Box>
+        ) : src ? (
+          <Box sx={{ width: "100%", height: "100%", overflow: "hidden" }}>
+            <iframe
+              title="Resume Preview"
+              src={
+                isMobile
+                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+                  : `${src}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+              }
+              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ p: 3 }}><Typography sx={{ opacity: 0.75 }}>Preview not available.</Typography></Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={onClose} size="small" className="adm-btn-outlined" startIcon={<MdClose />}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ResumeUploadSuccessDialog ──────────────────────────────────────────────
+function ResumeUploadSuccessDialog({ open, fileName, onClose }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  return (
+    <Dialog
+      open={open} onClose={onClose} fullWidth maxWidth="xs"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title">Upload Successful ✓</DialogTitle>
+      <DialogContent>
+        <Stack spacing={1.5} alignItems="center" sx={{ py: 1 }}>
+          <Box sx={{
+            width: 56, height: 56, borderRadius: "50%",
+            background: "linear-gradient(135deg,rgba(34,197,94,0.18),rgba(34,197,94,0.08))",
+            border: "1.5px solid rgba(34,197,94,0.32)",
+            display: "grid", placeItems: "center",
+          }}>
+            <MdCheckCircle style={{ fontSize: "1.8rem", color: "#86efac" }} />
+          </Box>
+          <Typography sx={{ fontWeight: 700, opacity: 0.90, textAlign: "center" }}>
+            "{fileName}" has been successfully uploaded.
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.55, textAlign: "center" }}>
+            You can now set it as the primary resume from the list below.
+          </Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button className="adm-btn-primary" onClick={onClose}>OK</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+
+
+// ── SkillEditRow — isolated so its own state changes don't re-render the parent ──
+function SkillEditRow({ skill, index, isEditing, initialValue, isDark, onStartEdit, onSave, onCancel, onDelete }) {
+  const [localVal, setLocalVal] = React.useState(initialValue);
+
+  React.useEffect(() => {
+    if (isEditing) setLocalVal(initialValue);
+  }, [isEditing, initialValue]);
+
+  return (
+    <TableRow className="adm-tr" sx={{ "& .MuiTableCell-root": { verticalAlign: "middle" } }}>
+      <TableCell className={`adm-td ${isDark ? "" : "adm-td-light"}`} sx={{ fontWeight: 800, textTransform: "capitalize", verticalAlign: "middle" }}>
+        {skill.category}
+      </TableCell>
+      <TableCell className={`adm-td ${isDark ? "" : "adm-td-light"}`} sx={{ verticalAlign: "middle" }}>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={localVal}
+            onChange={(e) => setLocalVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(localVal);
+              if (e.key === "Escape") onCancel();
+            }}
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1.5px solid rgba(198,128,242,0.45)",
+              borderRadius: "8px",
+              color: "inherit",
+              fontSize: "14px",
+              padding: "7px 12px",
+              width: "100%",
+              outline: "none",
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+            }}
+          />
+        ) : skill.name}
+      </TableCell>
+      <TableCell className={`adm-td ${isDark ? "" : "adm-td-light"}`} sx={{ verticalAlign: "middle" }}>
+        <Stack direction="row" spacing={0.8}>
+          {isEditing ? (
+            <>
+              <IconButton size="small" sx={{ color: "#4ade80" }} onClick={() => onSave(localVal)}><MdSave /></IconButton>
+              <IconButton size="small" sx={{ color: "#f97316" }} onMouseDown={(e) => { e.preventDefault(); onCancel(); }}><MdClose /></IconButton>
+            </>
+          ) : (
+            <IconButton size="small" className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`} onClick={onStartEdit}><MdEdit /></IconButton>
+          )}
+          <IconButton size="small" className="adm-icon-btn-err" onClick={onDelete}><MdDelete /></IconButton>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN EXPORT — AdminDashboard
+// ═══════════════════════════════════════════════════════════════════════════
+export default function AdminDashboard(props) {
+  const { username } = useParams();
+  const displayName = username
+    ? username.charAt(0).toUpperCase() + username.slice(1)
+    : "Admin";
+
+  React.useEffect(() => {
+    document.title = `${displayName} Admin Panel Premium 2`;
+  }, [displayName]);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isDark = theme.palette.mode === "dark";
+
+  // ── ALL STATE (unchanged) ────────────────────────────────────────────────
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [active, setActive] = useState("dashboard");
+  const [loading, setLoading] = useState(false);
+  const [ok, setOk] = useState("");
+  const [err, setErr] = useState("");
+
+  const [profile, setProfile] = useState({ name: "", title: "", tagline: "", location: "", emailPublic: "", initials: "", about: "" });
+  const [skills, setSkills] = useState({ frontend: "", backend: "", database: "", tools: "" });
+
+  const [skillCategory, setSkillCategory] = useState("frontend");
+  const [skillInput, setSkillInput] = useState("");
+  const [skillTable, setSkillTable] = useState([]);
+  const [editIndex, setEditIndex] = useState(null);
+  const [editValue, setEditValue] = useState("");
+
+  const [projects, setProjects] = useState([]);
+  const [socials, setSocials] = useState({ github: "", linkedin: "", email: "", phone: "", website: "" });
+  const [achievements, setAchievements] = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [education, setEducation] = useState([]);
+  const [experience, setExperience] = useState([]);
+
+  const [projDlgOpen, setProjDlgOpen] = useState(false);
+  const [projDlgMode, setProjDlgMode] = useState("add");
+  const [projDlgInitial, setProjDlgInitial] = useState(null);
+
+  // ── FIX 2: Unified confirm dialog state ──────────────────────────────────
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmPayload, setConfirmPayload] = useState({ title: "", description: "", confirmText: "", onConfirm: null });
+
+  const [achDlgOpen, setAchDlgOpen] = useState(false);
+  const [achEditingId, setAchEditingId] = useState(null);
+  const [achForm, setAchForm] = useState({ title: "", issuer: "", year: "", link: "" });
+
+  const [langDlgOpen, setLangDlgOpen] = useState(false);
+  const [langEditingId, setLangEditingId] = useState(null);
+  const [langForm, setLangForm] = useState({ language: "", level: "Beginner", years: 1, notes: "" });
+
+  const [eduDlgOpen, setEduDlgOpen] = useState(false);
+  const [eduEditingId, setEduEditingId] = useState(null);
+  const [eduForm, setEduForm] = useState({ degree: "", institution: "", year: "", details: "" });
+
+  const [expDlgOpen, setExpDlgOpen] = useState(false);
+  const [expEditingId, setExpEditingId] = useState(null);
+  const [expForm, setExpForm] = useState({ company: "", role: "", start: "", end: "", description: "" });
+
+  const [resumes, setResumes] = useState([]);
+  const [resumeMenuAnchor, setResumeMenuAnchor] = useState(null);
+  const [resumeMenuPosition, setResumeMenuPosition] = useState(null);
+  const [resumeMenuItem, setResumeMenuItem] = useState(null);
+  const [resumePreviewOpen, setResumePreviewOpen] = useState(false);
+  const [resumePreviewTitle, setResumePreviewTitle] = useState("");
+  const [resumePreviewBlobUrl, setResumePreviewBlobUrl] = useState("");
+  const [resumePreviewLoading, setResumePreviewLoading] = useState(false);
+
+  // ── FIX 3: Resume upload progress + success dialog ───────────────────────
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
+  const [resumeUploadedName, setResumeUploadedName] = useState("");
+
+
+  const [certUploading, setCertUploading] = useState(null);
+  const [profileImages, setProfileImages] = useState([]);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgUploadType, setImgUploadType] = useState("");
+
+  const [imgPreviewOpen, setImgPreviewOpen] = useState(false);
+  const [imgPreviewSrc, setImgPreviewSrc] = useState("");
+  const [imgPreviewTitle, setImgPreviewTitle] = useState("");
+
+  const [pendingImages, setPendingImages] = useState({}); // { original: File, animated: File }
+  const [pendingPreviews, setPendingPreviews] = useState({}); // { original: objectUrl, animated: objectUrl }
+
+  const [certPreviewOpen, setCertPreviewOpen] = useState(false);
+  const [certPreviewSrc, setCertPreviewSrc] = useState("");
+  const [certPreviewTitle, setCertPreviewTitle] = useState("");
+  const [certPreviewIsImage, setCertPreviewIsImage] = useState(false);
+  const [certPreviewLoading, setCertPreviewLoading] = useState(false);
+  const [certPreviewAchId, setCertPreviewAchId] = useState(null);
+
+  const [imgBlobUrls, setImgBlobUrls] = useState({});
+
+  const handleDrawerToggle = () => setMobileOpen((p) => !p);
+
+  // ── ALL HANDLERS ──────────────────────────────────────────────────────────
+
+  const fetchAllAdmin = async () => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      const [p, s, pr, so, a, l, edu, exp] = await Promise.all([
+        getProfile(), getSkills(), getAllProjectsAdmin(), getSocials(),
+        getAchievements(), getLanguageExperience(), getEducation(), getExperience(),
+      ]);
+      setProfile(p?.data || {});
+      setSkills(s?.data || {});
+      const table = [];
+      const data = s?.data || {};
+      ["frontend", "backend", "database", "tools"].forEach(cat => {
+        if (data[cat]) data[cat].split(",").forEach(sk => { if (sk.trim()) table.push({ category: cat, name: sk.trim() }); });
+      });
+      setSkillTable(table);
+      setProjects(pr?.data || []);
+      setSocials(so?.data || {});
+      setAchievements(Array.isArray(a?.data) ? a.data : []);
+      setLanguages(Array.isArray(l?.data) ? l.data : []);
+      setEducation(Array.isArray(edu?.data) ? edu.data : []);
+      setExperience(Array.isArray(exp?.data) ? exp.data : []);
+      try { const r = await listResumesAdmin(); if (r?.data && Array.isArray(r.data)) setResumes(r.data); } catch {}
+      setOk("Admin data loaded from DB.");
+    } catch { setErr("Failed to load Admin data. Check backend is running + token + CORS."); }
+    finally { setLoading(false); }
+  };
+
+
+  // ── Reorder state ──────────────────────────────────────────────────────────
+const [reorderMenu, setReorderMenu] = useState({ open: false, section: null, itemId: null, anchorEl: null, position: null });
+const [pendingOrders, setPendingOrders] = useState({}); 
+// pendingOrders shape: { projects: {id: order}, achievements: {id: order}, ... }
+
+const openReorderMenu = (el, section, itemId) => {
+  const rect = el.getBoundingClientRect();
+  setReorderMenu({
+    open: true,
+    section,
+    itemId,
+    anchorEl: el,
+    position: {
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+    },
+  });
+};
+const closeReorderMenu = () => {
+  setReorderMenu({ open: false, section: null, itemId: null, anchorEl: null, position: null });
+};
+
+const getSectionItems = (section) => {
+  if (section === "projects") return projects;
+  if (section === "achievements") return achievements;
+  if (section === "languages") return languages;
+  if (section === "education") return education;
+  if (section === "experience") return experience;
+  return [];
+};
+const setSectionItems = (section, items) => {
+  if (section === "projects") setProjects(items);
+  else if (section === "achievements") setAchievements(items);
+  else if (section === "languages") setLanguages(items);
+  else if (section === "education") setEducation(items);
+  else if (section === "experience") setExperience(items);
+};
+const selectOrder = (section, itemId, newPosition) => {
+  // newPosition is 1-based
+  const items = getSectionItems(section);
+  const fromIdx = items.findIndex(x => x.id === itemId);
+  if (fromIdx === -1) return;
+  const toIdx = newPosition - 1;
+  const reordered = [...items];
+  const [moved] = reordered.splice(fromIdx, 1);
+  reordered.splice(toIdx, 0, moved);
+  setSectionItems(section, reordered);
+  setPendingOrders(p => ({ ...p, [section]: true }));
+  closeReorderMenu();
+};
+
+const onPreviewCertificate = async (ach) => {
+  setCertPreviewTitle(ach.title || "Certificate");
+  setCertPreviewSrc("");
+  setCertPreviewIsImage(false);
+  setCertPreviewAchId(ach.id);   // ← ADD THIS LINE
+  setCertPreviewLoading(true);
+  setCertPreviewOpen(true);
+  try {
+const res = await http.get(
+  `/u/${username}/portfolio/achievements/${ach.id}/certificate`,
+  { responseType: "arraybuffer" }
+);
+    const contentType = res.headers["content-type"] || ach.certificateContentType || "application/pdf";
+    const blob = new Blob([res.data], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    setCertPreviewSrc(url);
+    setCertPreviewIsImage(contentType.startsWith("image/"));  // ← MOVE isImage detection here
+  } catch {
+    setCertPreviewSrc("");
+  } finally {
+    setCertPreviewLoading(false);
+  }
+};
+
+const closeCertPreview = () => {
+  setCertPreviewOpen(false);
+  if (certPreviewSrc) {
+    try { URL.revokeObjectURL(certPreviewSrc); } catch {}
+  }
+  setCertPreviewSrc("");
+};
+
+const loadProfileImageBlob = async (id) => {
+  try {
+    const res = await http.get(`/profile-image/view/${id}`, { responseType: "arraybuffer" });
+    const contentType = res.headers["content-type"] || "image/png";
+    const blob = new Blob([res.data], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    setImgBlobUrls((prev) => ({ ...prev, [id]: url }));
+  } catch {
+    // image not found
+  }
+};
+
+// In fetchProfileImages (or useEffect after profileImages loads), call:
+// After you set profileImages, call:
+React.useEffect(() => {
+  if (profileImages.length > 0) {
+    profileImages.forEach((img) => loadProfileImageBlob(img.id));
+  }
+}, [profileImages]);
+
+  React.useEffect(() => { fetchAllAdmin(); }, []); // eslint-disable-line
+
+  const toggleTheme = () => {
+    if (typeof props?.setDarkMode === "function") { props.setDarkMode((p) => !p); return; }
+    const next = theme.palette.mode !== "dark";
+    localStorage.setItem("admin_pref_dark", next ? "1" : "0");
+    setOk("Theme toggle clicked. (Wire setDarkMode from App.jsx to apply instantly)");
+  };
+
+  const [pushDialog, setPushDialog] = useState({ open: false, name: "" });
+  const handlePushResume = async (r) => { await pushResumeToViewer(r); setPushDialog({ open: true, name: r.fileName || "Resume.pdf" }); };
+
+  const saveProfileNow = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await updateProfile(profile); setOk("Profile saved to DB."); bumpContentVersion(); }
+    catch { setErr("Saving profile failed."); } finally { setLoading(false); }
+  };
+
+  const saveSkillsNow = async () => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      const payload = {
+        frontend: skillTable.filter(s => s.category === "frontend").map(s => s.name).join(","),
+        backend: skillTable.filter(s => s.category === "backend").map(s => s.name).join(","),
+        database: skillTable.filter(s => s.category === "database").map(s => s.name).join(","),
+        tools: skillTable.filter(s => s.category === "tools").map(s => s.name).join(","),
+      };
+      await updateSkills(payload);
+      setOk("Skills saved to database successfully"); bumpContentVersion();
+    } catch (e) { console.error(e); setErr("Skills save failed"); } finally { setLoading(false); }
+  };
+
+  const addSkill = () => { if (!skillInput.trim()) return; setSkillTable(p => [...p, { category: skillCategory, name: skillInput.trim() }]); setSkillInput(""); };
+  const deleteSkill = (index) => {
+    setConfirmPayload({
+      title: "Delete Skill?",
+      description: `Remove "${skillTable[index]?.name}" from skills?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setSkillTable(p => p.filter((_, i) => i !== index)); },
+    });
+    setConfirmOpen(true);
+  };
+  const startEditSkill = (i) => { setEditIndex(i); setEditValue(skillTable[i].name); };
+  const saveEditSkill = (i) => { setSkillTable(p => p.map((x, idx) => (idx === i ? { ...x, name: editValue } : x))); setEditIndex(null); };
+
+  const saveSocialsNow = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await updateSocials(socials); setOk("Contact / Links saved to DB."); bumpContentVersion(); }
+    catch { setErr("Saving socials failed."); } finally { setLoading(false); }
+  };
+
+  const openAddProject = () => { setProjDlgMode("add"); setProjDlgInitial(null); setProjDlgOpen(true); };
+  const openEditProject = (proj) => { setProjDlgMode("edit"); setProjDlgInitial(proj); setProjDlgOpen(true); };
+
+  const onSaveProjectDialog = async (form) => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      if (projDlgMode === "edit" && projDlgInitial?.id) { await updateProject(projDlgInitial.id, form); setOk("Project updated."); }
+      else { await createProject(form); setOk("Project added."); }
+      setProjDlgOpen(false); await fetchAllAdmin(); bumpContentVersion();
+    } catch { setErr("Project save failed."); } finally { setLoading(false); }
+  };
+
+  const askDeleteProject = (proj) => {
+    setConfirmPayload({
+      title: "Delete Project?",
+      description: `This will permanently delete "${proj.title}".`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        try { setConfirmOpen(false); setErr(""); setOk(""); setLoading(true); await deleteProject(proj.id); setOk("Project deleted."); await fetchAllAdmin(); bumpContentVersion(); setPendingOrders(p => { const n={...p}; delete n.projects; return n; });
+ }
+        catch { setErr("Delete failed."); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const openAchAdd = () => { setAchEditingId(null); setAchForm({ title: "", issuer: "", year: "", link: "" }); setAchDlgOpen(true); };
+  const openAchEdit = (a) => { setAchEditingId(a.id); setAchForm({ title: a.title || "", issuer: a.issuer || "", year: a.year || "", link: a.link || "" }); setAchDlgOpen(true); };
+
+  const deleteAchLocal = (id) => {
+    const ach = achievements.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Achievement?",
+      description: `Remove "${ach?.title || "this achievement"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setAchievements((p) => p.filter((x) => x.id !== id)); },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveAchLocal = () => {
+    if (achEditingId) setAchievements((p) => p.map((x) => (x.id === achEditingId ? { ...x, ...achForm } : x)));
+    else setAchievements((p) => [{ ...achForm, id: Date.now() }, ...p]);
+    setAchDlgOpen(false);
+  };
+  const persistAchievements = async () => {
+    try { setErr(""); setOk(""); setLoading(true); await saveAchievements(achievements.map(({ id, ...rest }) => rest)); setOk("Achievements saved to DB.");setPendingOrders(p => { const n={...p}; delete n.achievements; return n; }); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving achievements failed."); } finally { setLoading(false); }
+  };
+
+
+
+  const persistProjectOrder = async () => {
+  try {
+    setErr(""); setOk(""); setLoading(true);
+    // Re-save each project with its new sortOrder, sequentially
+    // BUT also call a bulk endpoint if you have one — mirror achievements:
+    // Since projects use individual update, we still need sortOrder on backend
+    // The REAL fix: send array order as payload same as achievements
+    // Use saveAchievements-style: send full array stripped of id
+    // You need a bulk-save endpoint for projects, OR use sortOrder correctly.
+    // For now, sequential with sortOrder (matches your existing backend field):
+    for (let idx = 0; idx < projects.length; idx++) {
+      await updateProject(projects[idx].id, { ...projects[idx], sortOrder: idx + 1 });
+    }
+    setOk("Project order saved to DB.");
+    setPendingOrders(prev => { const n = { ...prev }; delete n.projects; return n; });
+    await fetchAllAdmin();
+    bumpContentVersion();
+  } catch { setErr("Failed to save project order."); }
+  finally { setLoading(false); }
+};
+
+  const openLangAdd = () => { setLangEditingId(null); setLangForm({ language: "", level: "Beginner", years: 1, notes: "" }); setLangDlgOpen(true); };
+  const openLangEdit = (l) => { setLangEditingId(l.id); setLangForm({ language: l.language || l.name || "", level: l.level || "Beginner", years: Number(l.years || 1), notes: l.notes || "" }); setLangDlgOpen(true); };
+
+  const deleteLangLocal = (id) => {
+    const lang = languages.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Language?",
+      description: `Remove "${lang?.language || lang?.name || "this language"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: () => { setConfirmOpen(false); setLanguages((p) => p.filter((x) => x.id !== id)); },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveLangLocal = () => {
+    if (langEditingId) setLanguages((p) => p.map((x) => (x.id === langEditingId ? { ...x, ...langForm } : x)));
+    else setLanguages((p) => [{ ...langForm, id: Date.now() }, ...p]);
+    setLangDlgOpen(false);
+  };
+  const persistLanguages = async () => {
+    try {
+      setErr(""); setOk(""); setLoading(true);
+      const payload = languages.map((l) => ({ language: l.language || l.name || "", level: l.level || "Beginner", years: String(l.years ?? 1), notes: l.notes || "" }));
+      await saveLanguageExperience(payload); setOk("Languages experience saved to DB."); setPendingOrders(p => { const n={...p}; delete n.languages; return n; }); await fetchAllAdmin(); bumpContentVersion();
+    } catch { setErr("Saving language experience failed."); } finally { setLoading(false); }
+  };
+
+  const openEduAdd = () => { setEduEditingId(null); setEduForm({ degree: "", institution: "", year: "", details: "" }); setEduDlgOpen(true); };
+  const openEduEdit = (e) => { setEduEditingId(e.id); setEduForm({ degree: e.degree || "", institution: e.institution || "", year: e.year || "", details: e.details || "" }); setEduDlgOpen(true); };
+
+  const deleteEduLocal = async (id) => {
+    const edu = education.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Education?",
+      description: `Remove "${edu?.degree || "this education record"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        const prev = education; const next = prev.filter((x) => x.id !== id); setEducation(next);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          let deleted = false;
+          try { await http.delete(`/portfolio/education/${id}`); deleted = true; } catch {}
+          if (!deleted) { const payload = next.map(({ id: _id, ...rest }) => rest); await updateEducation(payload); }
+          setOk("Education deleted."); await fetchAllAdmin(); bumpContentVersion();
+        } catch { setErr("Deleting education failed."); setEducation(prev); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveEduLocal = () => {
+    if (eduEditingId) setEducation((p) => p.map((x) => (x.id === eduEditingId ? { ...x, ...eduForm } : x)));
+    else setEducation((p) => [{ ...eduForm, id: Date.now() }, ...p]);
+    setEduDlgOpen(false);
+  };
+  const persistEducation = async () => {
+    try { setErr(""); setOk(""); setLoading(true); const payload = education.map(({ id, ...rest }) => rest); await updateEducation(payload); setOk("Education saved to DB."); setPendingOrders(p => { const n={...p}; delete n.education; return n; }); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving education failed."); } finally { setLoading(false); }
+  };
+
+  const openExpAdd = () => { setExpEditingId(null); setExpForm({ company: "", role: "", start: "", end: "", description: "" }); setExpDlgOpen(true); };
+  const openExpEdit = (e) => { setExpEditingId(e.id); setExpForm({ company: e.company || "", role: e.role || "", start: e.start || "", end: e.end || "", description: e.description || "" }); setExpDlgOpen(true); };
+
+  const deleteExpLocal = async (id) => {
+    const exp = experience.find(x => x.id === id);
+    setConfirmPayload({
+      title: "Delete Experience?",
+      description: `Remove "${exp?.company || "this experience record"}" permanently?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        const prev = experience; const next = prev.filter((x) => x.id !== id); setExperience(next);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          let deleted = false;
+          try { await http.delete(`/portfolio/experience/${id}`); deleted = true; } catch {}
+          if (!deleted) { const payload = next.map(({ id: _id, ...rest }) => rest); await updateExperience(payload); }
+          setOk("Experience deleted."); await fetchAllAdmin(); bumpContentVersion();
+        } catch { setErr("Deleting experience failed."); setExperience(prev); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const saveExpLocal = () => {
+    if (expEditingId) setExperience((p) => p.map((x) => (x.id === expEditingId ? { ...x, ...expForm } : x)));
+    else setExperience((p) => [{ ...expForm, id: Date.now() }, ...p]);
+    setExpDlgOpen(false);
+  };
+  const persistExperience = async () => {
+    try { setErr(""); setOk(""); setLoading(true); const payload = experience.map(({ id, ...rest }) => rest); await updateExperience(payload); setOk("Experience saved to DB."); setPendingOrders(p => { const n={...p}; delete n.experience; return n; }); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Saving experience failed."); } finally { setLoading(false); }
+  };
+
+  const onUploadResume = async (file) => {
+    try {
+      setErr(""); setOk("");
+      setResumeUploading(true);
+      setResumeUploadedName(file.name);
+      await uploadResume(file);
+      const r = await listResumesAdmin();
+      if (r?.data && Array.isArray(r.data)) setResumes(r.data);
+      bumpContentVersion();
+      setResumeUploadSuccess(true);
+    }
+    catch { setErr("Resume upload failed."); }
+    finally { setResumeUploading(false); }
+  };
+
+  const openResumePreviewInline = async (title, directUrl) => {
+    try {
+      setResumePreviewTitle(title || "Resume Preview"); setResumePreviewLoading(true); setResumePreviewOpen(true);
+      const res = await http.get(directUrl, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      setResumePreviewBlobUrl(URL.createObjectURL(blob));
+    } catch { setResumePreviewBlobUrl(""); } finally { setResumePreviewLoading(false); }
+  };
+
+  const closeResumePreview = () => {
+    setResumePreviewOpen(false);
+    if (resumePreviewBlobUrl) { try { URL.revokeObjectURL(resumePreviewBlobUrl); } catch {} }
+    setResumePreviewBlobUrl("");
+  };
+
+  const previewCurrentResumeInline = async () => openResumePreviewInline("Current Resume", viewResumeUrl());
+  const pushResumeToViewer = async (item) => {
+    try { if (!item?.id) return; setErr(""); setOk(""); setLoading(true); await setPrimaryResume(item.id); setOk(`Pushed to Viewer: ${item.fileName || "Resume"}`); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Failed to push resume to Viewer."); } finally { setLoading(false); }
+  };
+
+  // FIXED: store the clicked resume in resumeMenuItem
+  const openResumeMenu = (event, resume) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    setResumeMenuAnchor(event.currentTarget);
+    setResumeMenuPosition({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+    });
+    setResumeMenuItem(resume);
+  };
+
+  const closeResumeMenu = () => {
+    setResumeMenuAnchor(null);
+    setResumeMenuPosition(null);
+    setResumeMenuItem(null);
+  };
+
+  const previewSelectedResumeInline = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    await openResumePreviewInline(item.fileName || "Resume", viewResumeByIdUrl(item.id));
+  };
+
+  const makePrimaryResume = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    try { setErr(""); setOk(""); setLoading(true); await setPrimaryResume(item.id); setOk("Primary resume set."); await fetchAllAdmin(); bumpContentVersion(); }
+    catch { setErr("Failed to set primary."); } finally { setLoading(false); }
+  };
+
+  const deleteResume = async () => {
+    const item = resumeMenuItem;
+    closeResumeMenu();
+    if (!item?.id) return;
+    setConfirmPayload({
+      title: "Delete Resume?",
+      description: `Permanently delete "${item.fileName || "this resume"}"?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        try { setErr(""); setOk(""); setLoading(true); await deleteResumeById(item.id); setOk("Resume deleted."); await fetchAllAdmin(); bumpContentVersion(); }
+        catch { setErr("Failed to delete resume."); } finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+
+  // ── Certificate upload handlers ───────────────────────────────────────────
+  const onUploadCertificate = async (achId, file) => {
+    if (!file) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    if (!allowed.includes(file.type)) {
+      setErr("Only PDF, JPEG, and PNG files are allowed for certificates.");
+      return;
+    }
+    try {
+      setErr(""); setOk("");
+      setCertUploading(achId);
+      const formData = new FormData();
+      formData.append("file", file);
+      await http.post(`/u/${username}/portfolio/achievements/${achId}/certificate`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setOk("Certificate uploaded successfully.");
+      await fetchAllAdmin();
+      bumpContentVersion();
+    } catch { setErr("Certificate upload failed."); }
+    finally { setCertUploading(null); }
+  };
+
+  const onDeleteCertificate = async (achId) => {
+    setConfirmPayload({
+      title: "Delete Certificate?",
+      description: "This will permanently remove the certificate file.",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          await http.delete(`/u/${username}/portfolio/achievements/${achId}/certificate`);
+          setOk("Certificate deleted.");
+          await fetchAllAdmin();
+          bumpContentVersion();
+        } catch { setErr("Failed to delete certificate."); }
+        finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const certViewUrl = (achId) =>
+    `${import.meta.env.VITE_API_BASE || ""}/api/portfolio/achievements/${achId}/certificate`;
+
+  // ── Profile Image handlers ────────────────────────────────────────────────
+  const fetchProfileImages = async () => {
+    try {
+      const res = await http.get("/profile-image/list");
+      setProfileImages(Array.isArray(res.data) ? res.data : []);
+    } catch {}
+  };
+
+  React.useEffect(() => { fetchProfileImages(); }, []); // eslint-disable-line
+
+const onUploadProfileImage = async (type, file) => {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    setErr("Only image files are allowed (JPEG, PNG, GIF, WebP).");
+    return;
+  }
+  try {
+    setErr(""); setOk("");
+    setImgUploading(true);
+    setImgUploadType(type);
+    const formData = new FormData();
+    formData.append("file", file);
+    await http.post(`/profile-image/upload/${type}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    setOk(`${type === "original" ? "Original" : "Animated"} image saved to DB.`);
+    // Clear pending
+    if (pendingPreviews[type]) URL.revokeObjectURL(pendingPreviews[type]);
+    setPendingImages((p) => { const n = { ...p }; delete n[type]; return n; });
+    setPendingPreviews((p) => { const n = { ...p }; delete n[type]; return n; });
+    await fetchProfileImages();
+    bumpContentVersion();
+  } catch { setErr("Image upload failed."); }
+  finally { setImgUploading(false); setImgUploadType(""); }
+};
+
+  const onDeleteProfileImage = async (id, type) => {
+    setConfirmPayload({
+      title: "Delete Image?",
+      description: `Permanently remove this ${type} image?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        setConfirmOpen(false);
+        try {
+          setErr(""); setOk(""); setLoading(true);
+          await http.delete(`/profile-image/delete/${id}`);
+          setOk("Image deleted.");
+          await fetchProfileImages();
+          bumpContentVersion();
+        } catch { setErr("Failed to delete image."); }
+        finally { setLoading(false); }
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+const onPreviewProfileImage = async (type) => {
+  setImgPreviewTitle(type === "original" ? "Original Image" : "Animated Image");
+  setImgPreviewSrc(""); // clear first
+  setImgPreviewOpen(true);
+  try {
+    const token = localStorage.getItem("token"); // or however you store JWT
+    const res = await http.get(`/profile-image/view/${type}`, { responseType: "arraybuffer" });
+    const contentType = res.headers["content-type"] || "image/png";
+    const blob = new Blob([res.data], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    setImgPreviewSrc(url);
+  } catch {
+    setImgPreviewSrc(""); // leave empty so error shows
+  }
+};
+
+  const profileImgUrl = (type) =>
+    `${import.meta.env.VITE_API_BASE || ""}/api/profile-image/${type}?t=${Date.now()}`;
+
+  const pageLabel = {
+    dashboard: "Dashboard", about: "About Me", skills: "Skills", projects: "Projects",
+    achievements: "Achievements", languages: "Languages Experience", education: "Education",
+    experience: "Experience", contact: "Contact / Links", resume: "Resume",
+    "profile-image": "Profile Image",
+  };
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: <MdDashboard /> },
+    { id: "about", label: "About Me", icon: <MdPerson /> },
+    { id: "skills", label: "Skills", icon: <MdBuild /> },
+    { id: "projects", label: "Projects", icon: <MdWork /> },
+    { id: "achievements", label: "Achievements", icon: <MdEmojiEvents /> },
+    { id: "languages", label: "Languages Exp", icon: <MdCode /> },
+    { id: "education", label: "Education", icon: <MdSchool /> },
+    { id: "experience", label: "Experience", icon: <MdBadge /> },
+    { id: "contact", label: "Contact / Links", icon: <MdLink /> },
+    { id: "resume", label: "Resume", icon: <MdDescription /> },
+    { id: "profile-image", label: "Profile Image", icon: <MdImage /> },
+  ];
+
+  const PBtn = ({ children, ...p }) => <Button size="small" className="adm-btn-primary" fullWidth={isMobile} {...p}>{children}</Button>;
+  const OBtn = ({ children, ...p }) => <Button size="small" className="adm-btn-outlined" fullWidth={isMobile} {...p}>{children}</Button>;
+
+  const IconEdit = ({ onClick }) => (
+    <IconButton size="small" className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`} onClick={onClick}><MdEdit /></IconButton>
+  );
+const IconOrder = ({ onClickBtn }) => (
+  <IconButton
+    size="small"
+    className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`}
+    title="Reorder"
+    onClick={(e) => onClickBtn(e.currentTarget)}
+  >
+    <MdArrowUpward />
+  </IconButton>
+);
+
+const IconDel = ({ onClick }) => (
+  <IconButton size="small" className="adm-icon-btn-err" onClick={onClick}><MdDelete /></IconButton>
+);
+
+  const TableWrap = ({ children }) => (
+    <Paper elevation={0} className={`adm-table-wrap ${isDark ? "" : "adm-table-wrap-light"}`}>
+      <TableContainer>{children}</TableContainer>
+    </Paper>
+  );
+
+  const THead = ({ cols }) => (
+    <TableHead>
+      <TableRow>
+        {cols.map((c, i) => (
+          <TableCell key={i} sx={c.sx} className={`adm-th ${isDark ? "" : "adm-th-light"}`}>{c.label}</TableCell>
+        ))}
+      </TableRow>
+    </TableHead>
+  );
+
+const TRow = ({ children }) => (
+  <TableRow
+    className={`adm-tr`}
+    sx={{ "& .MuiTableCell-root": { verticalAlign: "middle" } }}
+  >
+    {children}
+  </TableRow>
+);
+const TC = ({ children, bold, sx, colSpan }) => (
+  <TableCell
+    colSpan={colSpan}
+    className={`adm-td ${isDark ? "" : "adm-td-light"}`}
+    sx={{ fontWeight: bold ? 800 : undefined, verticalAlign: "middle", ...sx }}
+  >
+    {children}
+  </TableCell>
+);
+
+  const drawer = (
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Box className={`adm-drawer-header ${isDark ? "" : "adm-drawer-header-light"}`}>
+<Avatar className="adm-drawer-avatar">
+  {displayName.charAt(0).toUpperCase()}
+</Avatar>
+<Box className="adm-drawer-brand-text">
+  <Typography className="adm-drawer-brand-name">
+    {displayName} — Premium 2
+  </Typography>
+  <Typography className="adm-drawer-brand-sub">Portfolio Manager</Typography>
+</Box>
+      </Box>
+
+      <Box sx={{ flex: 1, overflowY: "auto", py: 1 }} className="adm-scroll">
+        <Typography className="adm-nav-section">Navigation</Typography>
+        <List disablePadding>
+          {navItems.map((it) => (
+            <ListItemButton
+              key={it.id}
+              onClick={() => { setActive(it.id); setMobileOpen(false); }}
+              className={`adm-nav-item ${active === it.id ? "adm-nav-item-active" : ""}`}
+            >
+              <ListItemIcon className={`adm-nav-icon ${isDark ? "" : "adm-nav-icon-light"}`}>
+                {it.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={it.label}
+                className={`adm-nav-label ${isDark ? "" : "adm-nav-label-light"}`}
+                primaryTypographyProps={{ fontSize: "0.875rem", fontWeight: active === it.id ? 800 : 600 }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+
+      <Box sx={{ p: 1.5, borderTop: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(17,24,39,0.07)" }}>
+        <Button
+          fullWidth
+          className="adm-logout"
+          startIcon={<MdLogout />}
+          onClick={() => { localStorage.removeItem("token"); window.location.href = "/admin-login"; }}
+        >
+          Logout
+        </Button>
+      </Box>
+    </Box>
+  );
+
+  return (
+    <Box
+      sx={{ display: "flex", minHeight: "100vh" }}
+      className={`adm-root ${isDark ? "adm-root-dark" : "adm-root-light"}`}
+    >
+      <CssBaseline />
+
+      {isDark && (
+        <Box className="adm-bg" aria-hidden="true">
+          <Box className="adm-orb adm-orb-1" />
+          <Box className="adm-orb adm-orb-2" />
+          <Box className="adm-orb adm-orb-3" />
+          <Box className="adm-grid" />
+        </Box>
+      )}
+
+      <AppBar
+        position="fixed"
+        elevation={0}
+        className={isDark ? "adm-appbar" : "adm-appbar adm-appbar-light"}
+        sx={{
+          zIndex: (t) => t.zIndex.drawer - 1,
+          color: "text.primary",
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` },
+        }}
+      >
+        <Toolbar sx={{ gap: 1 }}>
+          <IconButton
+            edge="start"
+            onClick={handleDrawerToggle}
+            className={`adm-bar-btn ${isDark ? "" : "adm-bar-btn-light"}`}
+            sx={{ mr: 0.5, display: { md: "none" } }}
+          >
+            <MdMenu />
+          </IconButton>
+
+<Typography className="adm-bar-title" sx={{ flexGrow: 1 }}>
+  {displayName} · {pageLabel[active] || "Admin"} · Premium 2
+</Typography>
+
+          <Tooltip title="View Portfolio">
+            <IconButton onClick={() => window.open("/", "_blank")} className={`adm-bar-btn ${isDark ? "" : "adm-bar-btn-light"}`}>
+              <MdVisibility />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={isDark ? "Light Mode" : "Dark Mode"}>
+            <IconButton onClick={toggleTheme} className={`adm-bar-btn ${isDark ? "" : "adm-bar-btn-light"}`}>
+              {isDark ? <MdLightMode /> : <MdDarkMode />}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Reload">
+            <IconButton onClick={fetchAllAdmin} className={`adm-bar-btn ${isDark ? "" : "adm-bar-btn-light"}`}>
+              <MdRefresh />
+            </IconButton>
+          </Tooltip>
+        </Toolbar>
+      </AppBar>
+
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, zIndex: 2 }}>
+        <Drawer
+          variant="temporary" open={mobileOpen} onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: drawerWidth, borderRight: "none" } }}
+          PaperProps={{ className: `adm-drawer ${isDark ? "" : "adm-drawer-light"}` }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent" open
+          sx={{ display: { xs: "none", md: "block" }, "& .MuiDrawer-paper": { width: drawerWidth } }}
+          PaperProps={{ className: `adm-drawer ${isDark ? "" : "adm-drawer-light"}` }}
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+
+      <Box
+        component="main"
+        className="adm-main"
+        sx={{
+          flexGrow: 1, minWidth: 0, pb: 6,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+        }}
+      >
+        <Toolbar />
+
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+          {ok && <Alert severity="success" className="adm-alert-ok">{ok}</Alert>}
+          {err && <Alert severity="error" className="adm-alert-err">{err}</Alert>}
+
+          <Box className="adm-page-header adm-page-enter">
+<Typography className={isDark ? "adm-page-title" : "adm-page-title adm-page-title-light"}>
+  {pageLabel[active] || "Admin"}
+</Typography>
+<Typography sx={{ fontSize: "0.72rem", fontWeight: 700, opacity: 0.4, letterSpacing: "0.12em", textTransform: "uppercase", mt: 0.3 }}>
+  {displayName} · Premium 2 Admin
+</Typography>
+            <Typography className="adm-page-subtitle">
+              {active === "dashboard" && "Portfolio overview — all data synced from DB"}
+              {active === "about" && "Edit your public profile — saved directly to the database"}
+              {active === "skills" && "Manage your tech stack with add / edit / delete"}
+              {active === "projects" && "Add or edit featured projects shown on the viewer"}
+              {active === "achievements" && "Certifications, awards and recognitions"}
+              {active === "languages" && "Programming language proficiency and years of experience"}
+              {active === "education" && "Academic background and qualifications"}
+              {active === "experience" && "Career and internship timeline"}
+              {active === "contact" && "Social links and contact information shown in viewer"}
+              {active === "resume" && "Upload, preview, and set the primary resume for download"}
+              {active === "profile-image" && "Upload your original and animated profile images"}
+            </Typography>
+          </Box>
+
+          {active === "dashboard" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Overview" subtitle="Quick counts — DB-backed"
+                right={<OBtn startIcon={<MdRefresh />} onClick={fetchAllAdmin}>Reload</OBtn>}
+              />
+              <Grid container spacing={2.5}>
+                {[
+                  { title: "Projects", value: projects.length, subtitle: "Featured + all", icon: <MdWork />, trendLabel: "DB" },
+                  { title: "Skills", value: String(skills.frontend || "").split(",").filter(Boolean).length, subtitle: "Frontend tags", icon: <MdBuild />, trendLabel: "DB" },
+                  { title: "Achievements", value: achievements.length, subtitle: "Awards + certs", icon: <MdEmojiEvents />, trendLabel: "DB" },
+                  { title: "Resumes", value: resumes.length, subtitle: "Uploaded", icon: <MdDescription />, trendLabel: "DB" },
+                ].map((s, i) => (
+                  <Grid key={i} item xs={12} sm={6} md={3}><StatCard {...s} /></Grid>
+                ))}
+              </Grid>
+
+              {projects.length > 0 && (
+                <Box sx={{ mt: 3.5 }}>
+                  <Typography sx={{ fontWeight: 800, mb: 1.5, opacity: 0.45, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    Recent Projects
+                  </Typography>
+                  <TableWrap>
+                    <Table size="small">
+                      <THead cols={[{ label: "Title" }, { label: "Tech" }, { label: "Featured", sx: { width: 100 } }]} />
+                      <TableBody>
+                        {projects.slice(0, 5).map((p) => (
+                          <TRow key={p.id}>
+                            <TC bold>{p.title}</TC>
+                            <TC>{p.tech}</TC>
+                            <TC><Chip size="small" label={p.featured ? "YES" : "NO"} className={p.featured ? "adm-chip-yes" : "adm-chip-no"} /></TC>
+                          </TRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableWrap>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {active === "about" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Profile Details" subtitle="Shown publicly on the portfolio viewer"
+                right={<PBtn startIcon={<MdSave />} onClick={saveProfileNow}>Save Profile</PBtn>}
+              />
+              <Paper
+                elevation={0}
+                className={`adm-glass adm-neon-top ${isDark ? "" : "adm-glass-light"}`}
+                sx={{ p: { xs: 2, md: 3 }, width: "100%", boxSizing: "border-box" }}
+              >
+                <Box sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", md: "row" },
+                  gap: 2.5,
+                  width: "100%",
+                  minHeight: { md: 360 },
+                }}>
+
+                  <Box sx={{
+                    width: { xs: "100%", md: "320px" },
+                    flexShrink: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                  }}>
+                    {[["Name", "name"], ["Title", "title"], ["Tagline", "tagline"], ["Location", "location"], ["Public Email", "emailPublic"], ["Initials", "initials"]].map(([label, key]) => (
+                      <SmallTextField
+                        key={key}
+                        label={label}
+                        value={profile[key] || ""}
+                        onChange={(e) => setProfile((p) => ({ ...p, [key]: e.target.value }))}
+                      />
+                    ))}
+                  </Box>
+
+                  <Box sx={{
+                    flex: { xs: "unset", md: 1 },
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}>
+                    <TextField
+                      label="About"
+                      value={profile.about || ""}
+                      onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value }))}
+                      fullWidth
+                      multiline
+                      variant="outlined"
+                      size="small"
+                      minRows={isMobile ? 6 : undefined}
+                      InputLabelProps={{ shrink: Boolean((profile.about || "").length) }}
+                      sx={{
+                        flex: { xs: "unset", md: 1 },
+                        display: "flex",
+                        flexDirection: "column",
+                        height: { xs: "auto", md: "100%" },
+                        "& .MuiOutlinedInput-root": {
+                          flex: { xs: "unset", md: 1 },
+                          height: { xs: "auto", md: "100%" },
+                          alignItems: "flex-start",
+                          borderRadius: "14px",
+                          background: isDark ? "rgba(255,255,255,0.04)" : "rgba(241,48,36,0.04)",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.12)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#f13024" },
+                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#f13024", borderWidth: "1.5px" },
+                        },
+                        "& .MuiInputBase-root": { flex: { xs: "unset", md: 1 }, height: { xs: "auto", md: "100%" }, alignItems: "flex-start" },
+                        "& .MuiInputBase-inputMultiline": {
+                          height: { xs: "auto !important", md: "100% !important" },
+                          overflowY: { xs: "visible", md: "auto !important" },
+                          resize: "none",
+                          padding: "12px 14px",
+                          fontSize: "14px",
+                          lineHeight: 1.75,
+                          boxSizing: "border-box",
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "break-word",
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                          "&::-webkit-scrollbar": { display: "none" },
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": { color: "#f97316" },
+                      }}
+                    />
+                  </Box>
+
+                </Box>
+              </Paper>
+            </Box>
+          )}
+
+          {active === "skills" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Skills Manager" subtitle="Add → Edit → Delete → Save to DB"
+                right={<PBtn startIcon={<MdSave />} onClick={saveSkillsNow}>Save Skills</PBtn>}
+              />
+              <Paper elevation={0} className={`adm-glass ${isDark ? "" : "adm-glass-light"}`} sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5 }}>
+                <Grid container spacing={2} alignItems="flex-end">
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel>Category</InputLabel>
+                      <Select value={skillCategory} label="Category" onChange={(e) => setSkillCategory(e.target.value)}>
+                        <MenuItem value="frontend">Frontend</MenuItem>
+                        <MenuItem value="backend">Backend</MenuItem>
+                        <MenuItem value="database">Database</MenuItem>
+                        <MenuItem value="tools">Tools</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <SmallTextField label="Skill name" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Button fullWidth className="adm-btn-primary" startIcon={<MdAdd />} onClick={addSkill} sx={{ height: 42 }}>Add</Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Category" }, { label: "Skill" }, { label: "Action", sx: { width: 120 } }]} />
+                  <TableBody>
+                    {skillTable.length === 0 && <TRow><TC colSpan={3} sx={{ opacity: 0.5 }}>No skills added</TC></TRow>}
+                    {skillTable.map((s, i) => (
+                      <SkillEditRow
+                        key={i}
+                        skill={s}
+                        index={i}
+                        isEditing={editIndex === i}
+                        initialValue={editIndex === i ? editValue : s.name}
+                        isDark={isDark}
+                        onStartEdit={() => startEditSkill(i)}
+                        onSave={(val) => {
+                          setSkillTable(p => p.map((x, idx) => idx === i ? { ...x, name: val } : x));
+                          setEditIndex(null);
+                        }}
+                        onCancel={() => setEditIndex(null)}
+                        onDelete={() => deleteSkill(i)}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+            </Box>
+          )}
+
+          {active === "projects" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+  title="Projects Manager" subtitle="Add / edit / delete projects shown on Viewer"
+  right={
+    <Stack direction="row" spacing={1} alignItems="center">
+{pendingOrders.projects && (
+  <>
+<Chip
+  label={`Order changed · ${projects.map((p, i) => `${i + 1}. ${(p.title || "").slice(0, 10)}`).join("  ")}`}
+  size="small"
+  sx={{
+    background: "rgba(249,115,22,0.18)",
+    color: "#f97316",
+    border: "1px solid rgba(249,115,22,0.35)",
+    fontWeight: 700,
+    fontSize: "0.68rem",
+    maxWidth: 360,
+    "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  }}
+/>
+          <PBtn
+            startIcon={<MdSave />}
+onClick={async () => {
+  try {
+    setErr(""); setOk(""); setLoading(true);
+    // Sequential updates preserve order even if backend uses insert-order
+    for (let idx = 0; idx < projects.length; idx++) {
+      await updateProject(projects[idx].id, { ...projects[idx], sortOrder: idx + 1 });
+    }
+    setOk("Project order saved to DB.");
+    setPendingOrders(prev => { const n = { ...prev }; delete n.projects; return n; });
+    await fetchAllAdmin();
+    bumpContentVersion();
+  } catch { setErr("Failed to save project order."); }
+  finally { setLoading(false); }
+}}
+          >
+            Save Order
+          </PBtn>
+        </>
+      )}
+      <OBtn startIcon={<MdAdd />} onClick={openAddProject}>Add Project</OBtn>
+    </Stack>
+  }
+/>
+              <TableWrap>
+                <Table>
+<THead cols={[{ label: "Title" }, { label: "Tech" }, { label: "Featured", sx: { width: 100 } }, { label: "Actions", sx: { width: 160 } }]} />
+                  <TableBody>
+                    {projects.map((p) => (
+                      <TRow key={p.id}>
+                        <TC bold>{p.title}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{p.tech}</TC>
+                        <TC><Chip size="small" label={p.featured ? "YES" : "NO"} className={p.featured ? "adm-chip-yes" : "adm-chip-no"} /></TC>
+<TC>
+  <Stack direction="row" spacing={0.8}>
+    <IconOrder onClickBtn={(el) => openReorderMenu(el, "projects", p.id)} />
+    <IconEdit onClick={() => openEditProject(p)} />
+    <IconDel onClick={() => askDeleteProject(p)} />
+  </Stack>
+</TC>
+                      </TRow>
+                    ))}
+                    {projects.length === 0 && <TRow><TC colSpan={4} sx={{ opacity: 0.55 }}>No projects yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <ProjectEditorDialog open={projDlgOpen} mode={projDlgMode} initial={projDlgInitial} onClose={() => setProjDlgOpen(false)} onSave={onSaveProjectDialog} />
+            </Box>
+          )}
+
+{active === "achievements" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Achievements" subtitle="Add / edit / delete then Save to DB. Upload certificate per achievement after saving."
+right={
+  <Stack direction="row" spacing={1} alignItems="center">
+{pendingOrders.achievements && (
+  <Chip
+    label={`Order · ${achievements.map((a, i) => `${i + 1}. ${(a.title || "").slice(0, 10)}`).join("  ")}`}
+    size="small"
+    sx={{
+      background: "rgba(249,115,22,0.18)",
+      color: "#f97316",
+      border: "1px solid rgba(249,115,22,0.35)",
+      fontWeight: 700,
+      fontSize: "0.68rem",
+      maxWidth: 360,
+      "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    }}
+  />
+)}
+    <OBtn startIcon={<MdAdd />} onClick={openAchAdd}>Add</OBtn>
+    <PBtn startIcon={<MdSave />} onClick={persistAchievements}>Save to DB</PBtn>
+  </Stack>
+}              />
+              <TableWrap>
+                <Table>
+<THead
+  cols={[
+    { label: "Title" },
+    { label: "Issuer" },
+    { label: "Year" },
+    { label: "Certificate", sx: { width: 270, minWidth: 270, maxWidth: 270 } },
+    { label: "Actions", sx: { width: 160, minWidth: 160, maxWidth: 160, whiteSpace: "nowrap" } },
+  ]}
+/>
+                  <TableBody>
+                    {achievements.map((a) => (
+                      <TRow key={a.id || a.title}>
+                        <TC bold>{a.title}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{a.issuer}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{a.year}</TC>
+<TC
+  sx={{
+    verticalAlign: "middle",
+    width: 270,
+    minWidth: 270,
+    maxWidth: 270,
+    whiteSpace: "nowrap",
+  }}
+>
+  {a.certificateFileName ? (
+    <Stack
+      direction="row"
+      spacing={0.8}
+      alignItems="center"
+      flexWrap="nowrap"
+      sx={{
+        width: "100%",
+        minWidth: 0,
+      }}
+    >
+      <Chip
+        size="small"
+        label={
+          a.certificateFileName.length > 18
+            ? a.certificateFileName.slice(0, 18) + "…"
+            : a.certificateFileName
+        }
+        className="adm-chip-yes"
+        sx={{
+          width: 150,
+          minWidth: 150,
+          maxWidth: 150,
+          justifyContent: "flex-start",
+          "& .MuiChip-label": {
+            display: "block",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            width: "100%",
+          },
+        }}
+      />
+      <Tooltip title="View Certificate">
+        <IconButton
+          size="small"
+          className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`}
+          onClick={() => onPreviewCertificate(a)}
+        >
+          <MdVisibility />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Delete Certificate">
+        <IconButton
+          size="small"
+          className="adm-icon-btn-err"
+          onClick={() => onDeleteCertificate(a.id)}
+        >
+          <MdDelete />
+        </IconButton>
+      </Tooltip>
+    </Stack>
+  ) : (
+    <Button
+      component="label"
+      size="small"
+      className="adm-btn-outlined"
+      startIcon={certUploading === a.id ? null : <MdUpload />}
+      disabled={certUploading === a.id || !a.id || a.id > 1e12}
+      sx={{
+        width: 150,
+        minWidth: 150,
+        maxWidth: 150,
+      }}
+    >
+      {certUploading === a.id ? "Uploading…" : "Upload"}
+      <input
+        hidden
+        type="file"
+        accept="application/pdf,image/jpeg,image/jpg,image/png"
+        onChange={(e) => e.target.files?.[0] && onUploadCertificate(a.id, e.target.files[0])}
+      />
+    </Button>
+  )}
+</TC>
+<TC sx={{ whiteSpace: "nowrap", minWidth: 170 }}>
+  <Stack
+    direction="row"
+    spacing={0.8}
+    alignItems="center"
+    justifyContent="center"
+    flexWrap="nowrap"
+    sx={{ width: "100%" }}
+  >
+    <IconOrder onClickBtn={(el) => openReorderMenu(el, "achievements", a.id)} />
+    <IconEdit onClick={() => openAchEdit(a)} />
+    <IconDel onClick={() => deleteAchLocal(a.id)} />
+  </Stack>
+</TC>
+                      </TRow>
+                    ))}
+                    {achievements.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No achievements yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <Paper elevation={0} className={`adm-glass ${isDark ? "" : "adm-glass-light"}`} sx={{ p: 1.5, mt: 1.5, borderRadius: "12px" }}>
+                <Typography variant="caption" sx={{ opacity: 0.55 }}>
+                  💡 Click "Save to DB" first before uploading a certificate. The Upload button is disabled for unsaved achievements.
+                </Typography>
+              </Paper>
+              <SimpleItemDialog open={achDlgOpen} title={achEditingId ? "Edit Achievement" : "Add Achievement"} onClose={() => setAchDlgOpen(false)} onSave={saveAchLocal}>
+                <Grid container spacing={2}>
+                  {[["Title", "title"], ["Issuer", "issuer"], ["Year", "year"], ["Link", "link"]].map(([label, key]) => (
+                    <Grid key={key} item xs={12} md={6}><SmallTextField label={label} value={achForm[key]} onChange={(e) => setAchForm((p) => ({ ...p, [key]: e.target.value }))} /></Grid>
+                  ))}
+                </Grid>
+              </SimpleItemDialog>
+{/* Certificate Preview Dialog */}
+<Dialog
+  open={certPreviewOpen}
+  onClose={closeCertPreview}
+  fullWidth
+  maxWidth="md"
+  className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+>
+  <DialogTitle className="adm-dialog-title" sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, py: 1.5 }}>
+    {certPreviewTitle}
+  </DialogTitle>
+  <DialogContent sx={{ height: { xs: 480, md: 580 }, p: 0, overflow: "hidden", bgcolor: "black" }}>
+    {certPreviewLoading ? (
+      <Box sx={{ p: 3 }}>
+        <Typography sx={{ opacity: 0.75 }}>Loading preview…</Typography>
+      </Box>
+    ) : certPreviewIsImage && certPreviewSrc ? (
+      <Box sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <img
+          src={certPreviewSrc}
+          alt={certPreviewTitle}
+          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+        />
+      </Box>
+    ) : !certPreviewIsImage && certPreviewSrc ? (
+      <Box sx={{ width: "100%", height: "100%", overflow: "hidden" }}>
+        <iframe
+          title="Certificate Preview"
+          src={
+            /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+              ? `https://docs.google.com/viewer?url=${encodeURIComponent(
+                  `${(import.meta.env.VITE_API_URL || "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api")}/u/${username}/portfolio/achievements/${certPreviewAchId}/certificate`
+                )}&embedded=true`
+              : `${certPreviewSrc}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+          }
+          style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+        />
+      </Box>
+    ) : (
+      <Box sx={{ p: 3 }}>
+        <Typography sx={{ opacity: 0.75 }}>Preview not available.</Typography>
+      </Box>
+    )}
+  </DialogContent>
+  <DialogActions sx={{ p: 2, gap: 1 }}>
+    <Button onClick={closeCertPreview} size="small" className="adm-btn-outlined" startIcon={<MdClose />}>Close</Button>
+  </DialogActions>
+</Dialog>
+            </Box>
+          )}
+
+          {active === "languages" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Programming Languages" subtitle="Language proficiency and experience"
+right={
+  <Stack direction="row" spacing={1} alignItems="center">
+{pendingOrders.languages && (
+  <Chip
+    label={`Order · ${languages.map((l, i) => `${i + 1}. ${((l.language || l.name) || "").slice(0, 10)}`).join("  ")}`}
+    size="small"
+    sx={{
+      background: "rgba(249,115,22,0.18)",
+      color: "#f97316",
+      border: "1px solid rgba(249,115,22,0.35)",
+      fontWeight: 700,
+      fontSize: "0.68rem",
+      maxWidth: 360,
+      "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    }}
+  />
+)}
+    <OBtn startIcon={<MdAdd />} onClick={openLangAdd}>Add</OBtn>
+    <PBtn startIcon={<MdSave />} onClick={persistLanguages}>Save to DB</PBtn>
+  </Stack>
+}
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Language" }, { label: "Level" }, { label: "Years" }, { label: "Notes" }, { label: "Actions", sx: { width: 110 } }]} />
+                  <TableBody>
+                    {languages.map((l) => (
+                      <TRow key={l.id || l.language}>
+                        <TC bold>{l.language || l.name}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.level}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.years}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{l.notes}</TC>
+                        <TC><Stack direction="row" spacing={0.8}><IconOrder onClickBtn={(el) => openReorderMenu(el, "languages", l.id)} /><IconEdit onClick={() => openLangEdit(l)} /><IconDel onClick={() => deleteLangLocal(l.id)} /></Stack></TC>
+                      </TRow>
+                    ))}
+                    {languages.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No languages yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={langDlgOpen} title={langEditingId ? "Edit Language" : "Add Language"} onClose={() => setLangDlgOpen(false)} onSave={saveLangLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}><SmallTextField label="Language" value={langForm.language} onChange={(e) => setLangForm((p) => ({ ...p, language: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel id="lang-level-label" shrink>Level</InputLabel>
+                      <Select labelId="lang-level-label" value={langForm.level} label="Level" onChange={(e) => setLangForm((p) => ({ ...p, level: e.target.value }))} notched>
+                        {["Beginner", "Intermediate", "Advanced"].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small" sx={tfSx}>
+                      <InputLabel id="lang-years-label" shrink>Years</InputLabel>
+                      <Select
+                        labelId="lang-years-label"
+                        value={langForm.years}
+                        label="Years"
+                        notched
+                        onChange={(e) => setLangForm((p) => ({ ...p, years: Number(e.target.value) }))}
+                        renderValue={(v) => `${v} yr${v > 1 ? "s" : ""}`}
+                      >
+                        {Array.from({ length: 10 }).map((_, i) => (
+                          <MenuItem key={i + 1} value={i + 1}>{i + 1} year{i > 0 ? "s" : ""}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}><SmallTextField label="Notes (optional)" value={langForm.notes} onChange={(e) => setLangForm((p) => ({ ...p, notes: e.target.value }))} /></Grid>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
+          )}
+
+          {active === "education" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Education" subtitle="Academic background and qualifications"
+right={
+  <Stack direction="row" spacing={1} alignItems="center">
+{pendingOrders.education && (
+  <Chip
+    label={`Order · ${education.map((e, i) => `${i + 1}. ${(e.degree || "").slice(0, 10)}`).join("  ")}`}
+    size="small"
+    sx={{
+      background: "rgba(249,115,22,0.18)",
+      color: "#f97316",
+      border: "1px solid rgba(249,115,22,0.35)",
+      fontWeight: 700,
+      fontSize: "0.68rem",
+      maxWidth: 360,
+      "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    }}
+  />
+)}
+    <OBtn startIcon={<MdAdd />} onClick={openEduAdd}>Add</OBtn>
+    <PBtn startIcon={<MdSave />} onClick={persistEducation}>Save to DB</PBtn>
+  </Stack>
+}
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Degree" }, { label: "Institution" }, { label: "Year" }, { label: "Actions", sx: { width: 110 } }]} />
+                  <TableBody>
+                    {education.map((e) => (
+                      <TRow key={e.id || e.degree}>
+                        <TC bold>{e.degree}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.institution}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.year}</TC>
+                        <TC><Stack direction="row" spacing={0.8}><IconOrder onClickBtn={(el) => openReorderMenu(el, "education", e.id)} /><IconEdit onClick={() => openEduEdit(e)} /><IconDel onClick={() => deleteEduLocal(e.id)} /></Stack></TC>
+                      </TRow>
+                    ))}
+                    {education.length === 0 && <TRow><TC colSpan={4} sx={{ opacity: 0.55 }}>No education yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={eduDlgOpen} title={eduEditingId ? "Edit Education" : "Add Education"} onClose={() => setEduDlgOpen(false)} onSave={saveEduLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><SmallTextField label="Degree" value={eduForm.degree} onChange={(e) => setEduForm((p) => ({ ...p, degree: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Institution" value={eduForm.institution} onChange={(e) => setEduForm((p) => ({ ...p, institution: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Year" value={eduForm.year} onChange={(e) => setEduForm((p) => ({ ...p, year: e.target.value }))} /></Grid>
+                  <Grid item xs={12}><SmallTextField label="Details (optional)" value={eduForm.details} onChange={(e) => setEduForm((p) => ({ ...p, details: e.target.value }))} multiline minRows={3} /></Grid>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
+          )}
+
+          {active === "experience" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Experience" subtitle="Career and internship timeline"
+right={
+  <Stack direction="row" spacing={1} alignItems="center">
+{pendingOrders.experience && (
+  <Chip
+    label={`Order · ${experience.map((e, i) => `${i + 1}. ${(e.company || "").slice(0, 10)}`).join("  ")}`}
+    size="small"
+    sx={{
+      background: "rgba(249,115,22,0.18)",
+      color: "#f97316",
+      border: "1px solid rgba(249,115,22,0.35)",
+      fontWeight: 700,
+      fontSize: "0.68rem",
+      maxWidth: 360,
+      "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    }}
+  />
+)}
+    <OBtn startIcon={<MdAdd />} onClick={openExpAdd}>Add</OBtn>
+    <PBtn startIcon={<MdSave />} onClick={persistExperience}>Save to DB</PBtn>
+  </Stack>
+}
+              />
+              <TableWrap>
+                <Table>
+                  <THead cols={[{ label: "Company" }, { label: "Role" }, { label: "Start" }, { label: "End" }, { label: "Actions", sx: { width: 110 } }]} />
+                  <TableBody>
+                    {experience.map((e) => (
+                      <TRow key={e.id || e.company}>
+                        <TC bold>{e.company}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.role}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.start}</TC>
+                        <TC sx={{ opacity: 0.80 }}>{e.end}</TC>
+                        <TC><Stack direction="row" spacing={0.8}><IconOrder onClickBtn={(el) => openReorderMenu(el, "experience", e.id)} /><IconEdit onClick={() => openExpEdit(e)} /><IconDel onClick={() => deleteExpLocal(e.id)} /></Stack></TC>
+                      </TRow>
+                    ))}
+                    {experience.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No experience yet.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+              <SimpleItemDialog open={expDlgOpen} title={expEditingId ? "Edit Experience" : "Add Experience"} onClose={() => setExpDlgOpen(false)} onSave={saveExpLocal}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><SmallTextField label="Company" value={expForm.company} onChange={(e) => setExpForm((p) => ({ ...p, company: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Role" value={expForm.role} onChange={(e) => setExpForm((p) => ({ ...p, role: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="Start" value={expForm.start} onChange={(e) => setExpForm((p) => ({ ...p, start: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><SmallTextField label="End" value={expForm.end} onChange={(e) => setExpForm((p) => ({ ...p, end: e.target.value }))} /></Grid>
+                  <Grid item xs={12} sx={{ width: "100%" }}>
+                    <SmallTextField
+                      label="Description" value={expForm.description || ""} onChange={(e) => setExpForm((p) => ({ ...p, description: e.target.value }))}
+                      fullWidth multiline InputProps={{ inputComponent: TextareaAutosize, inputProps: { minRows: 2 } }}
+                      sx={{ width: "100%", "& .MuiInputBase-root": { width: "100%", alignItems: "flex-start" }, "& textarea": { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "break-word" } }}
+                    />
+                  </Grid>
+                </Grid>
+              </SimpleItemDialog>
+            </Box>
+          )}
+
+          {active === "contact" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Contact / Links" subtitle="Shown in the Viewer footer and contact section"
+                right={<PBtn startIcon={<MdSave />} onClick={saveSocialsNow}>Save</PBtn>}
+              />
+              <Paper elevation={0} className={`adm-glass adm-neon-top ${isDark ? "" : "adm-glass-light"}`} sx={{ p: { xs: 2, md: 3 } }}>
+                <Grid container spacing={2.5}>
+                  {[["GitHub", "github"], ["LinkedIn", "linkedin"], ["Email", "email"], ["Phone", "phone"]].map(([label, key]) => (
+                    <Grid key={key} item xs={12} md={6}><SmallTextField label={label} value={socials[key] || ""} onChange={(e) => setSocials((p) => ({ ...p, [key]: e.target.value }))} /></Grid>
+                  ))}
+                  <Grid item xs={12}><SmallTextField label="Website" value={socials.website || ""} onChange={(e) => setSocials((p) => ({ ...p, website: e.target.value }))} /></Grid>
+                </Grid>
+              </Paper>
+            </Box>
+          )}
+
+          {active === "resume" && (
+            <Box className="adm-page-enter">
+              <SectionHeader
+                title="Resume Manager" subtitle="Upload, preview and set primary"
+                right={
+                  <Button
+                    component="label"
+                    className="adm-btn-primary"
+                    size="small"
+                    startIcon={resumeUploading ? null : <MdUpload />}
+                    fullWidth={isMobile}
+                    disabled={resumeUploading}
+                  >
+                    {resumeUploading ? "Uploading…" : "Upload Resume"}
+                    <input hidden type="file" accept="application/pdf" onChange={(e) => e.target.files?.[0] && onUploadResume(e.target.files[0])} />
+                  </Button>
+                }
+              />
+
+              {resumeUploading && (
+                <Box sx={{ mb: 2.5 }}>
+                  <Paper
+                    elevation={0}
+                    className={`adm-glass ${isDark ? "" : "adm-glass-light"}`}
+                    sx={{ p: 2, borderRadius: "16px" }}
+                  >
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Box sx={{
+                          width: 36, height: 36, borderRadius: "10px",
+                          background: "linear-gradient(135deg,rgba(241,48,36,0.18),rgba(249,115,22,0.10))",
+                          border: "1px solid rgba(241,48,36,0.28)",
+                          display: "grid", placeItems: "center", flexShrink: 0,
+                        }}>
+                          <MdUpload style={{ color: "#f97316", fontSize: "1.1rem" }} />
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: "0.875rem", opacity: 0.90, mb: 0.3 }}>
+                            Uploading {resumeUploadedName}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.75rem", opacity: 0.50 }}>
+                            Please wait…
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <LinearProgress
+                        sx={{
+                          borderRadius: "999px",
+                          height: 5,
+                          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)",
+                          "& .MuiLinearProgress-bar": {
+                            background: "linear-gradient(90deg,#f13024,#f97316)",
+                            borderRadius: "999px",
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </Paper>
+                </Box>
+              )}
+
+              <Paper elevation={0} className={`adm-glass adm-neon-top ${isDark ? "" : "adm-glass-light"}`} sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+                  <Typography sx={{ fontWeight: 700, opacity: 0.60, fontSize: "0.875rem" }}>Current Active Resume</Typography>
+                  <OBtn startIcon={<MdVisibility />} onClick={previewCurrentResumeInline}>Preview Current</OBtn>
+                </Stack>
+              </Paper>
+
+              <TableWrap>
+                <Table size="small">
+                  <THead cols={[{ label: "S.No", sx: { width: 50 } }, { label: "File" }, { label: "Status", sx: { width: 120 } }, { label: "Uploaded", sx: { width: 140 } }, { label: "Actions", sx: { width: 130, textAlign: "right" } }]} />
+                  <TableBody>
+                    {[...resumes].sort((a, b) => (b.primary === true ? 1 : 0) - (a.primary === true ? 1 : 0)).map((r, idx) => {
+                      const isPrimary = Boolean(r.primary);
+                      return (
+                        <TRow key={r.id || idx}>
+                          <TC sx={{ opacity: 0.55, fontWeight: 600 }}>{idx + 1}</TC>
+                          <TC bold sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.fileName || "Resume.pdf"}</TC>
+                          <TC>
+                            {isPrimary
+                              ? <Chip size="small" label="PRIMARY" icon={<MdStar style={{ color: "#ff9800", fontSize: "0.85rem" }} />} className="adm-chip-primary" />
+                              : <Typography variant="caption" sx={{ opacity: 0.4 }}>—</Typography>}
+                          </TC>
+                          <TC sx={{ opacity: 0.65, fontSize: "0.8rem" }}>{formatDate(r.uploadedAt)}</TC>
+                          <TC sx={{ textAlign: "right" }}>
+                            <Stack direction="row" spacing={0.8} justifyContent="flex-end">
+                              <Tooltip title="Push to Viewer">
+                                <IconButton size="small" className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`} onClick={() => handlePushResume(r)}><MdUpload /></IconButton>
+                              </Tooltip>
+                              <Tooltip title="More">
+                                <IconButton size="small" className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`} onClick={(e) => openResumeMenu(e, r)}><MdMoreHoriz /></IconButton>
+                              </Tooltip>
+                            </Stack>
+                          </TC>
+                        </TRow>
+                      );
+                    })}
+                    {resumes.length === 0 && <TRow><TC colSpan={5} sx={{ opacity: 0.55 }}>No resumes uploaded.</TC></TRow>}
+                  </TableBody>
+                </Table>
+              </TableWrap>
+
+              <Menu
+                anchorEl={resumeMenuAnchor}
+                anchorReference="anchorPosition"
+                anchorPosition={
+                  resumeMenuPosition
+                    ? { top: resumeMenuPosition.top, left: resumeMenuPosition.left }
+                    : undefined
+                }
+                open={Boolean(resumeMenuAnchor)}
+                onClose={closeResumeMenu}
+              >
+                <MenuItem onClick={previewSelectedResumeInline}><ListItemIcon sx={{ minWidth: 34 }}><MdVisibility /></ListItemIcon>Preview</MenuItem>
+                <MenuItem onClick={makePrimaryResume}><ListItemIcon sx={{ minWidth: 34 }}><MdStar /></ListItemIcon>Make Primary</MenuItem>
+                <Divider className={isDark ? "adm-divider" : "adm-divider-light"} />
+                <MenuItem onClick={deleteResume} sx={{ color: "error.main" }}><ListItemIcon sx={{ minWidth: 34, color: "error.main" }}><MdDelete /></ListItemIcon>Delete</MenuItem>
+              </Menu>
+
+              <ResumePreviewDialog open={resumePreviewOpen} title={resumePreviewTitle} onClose={closeResumePreview} url={viewResumeUrl()} blobUrl={resumePreviewBlobUrl} loading={resumePreviewLoading} />
+
+              <ResumeUploadSuccessDialog
+                open={resumeUploadSuccess}
+                fileName={resumeUploadedName}
+                onClose={() => setResumeUploadSuccess(false)}
+              />
+
+              <Dialog open={pushDialog.open} onClose={() => setPushDialog({ open: false, name: "" })} className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}>
+                <DialogTitle className="adm-dialog-title">Resume Pushed ✓</DialogTitle>
+                <DialogContent>
+                  <Typography sx={{ fontWeight: 600, opacity: 0.85 }}>
+                    "{pushDialog.name}" is now the active resume on the viewer page.
+                  </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                  <Button className="adm-btn-primary" onClick={() => setPushDialog({ open: false, name: "" })}>OK</Button>
+                </DialogActions>
+              </Dialog>
+            </Box>
+          )}
+
+{active === "profile-image" && (
+  <Box className="adm-page-enter">
+    {["original", "animated"].map((type) => {
+      const imgsOfType = profileImages.filter((i) => i.imageType === type);
+      const isUploading = imgUploading && imgUploadType === type;
+      const pendingFile = pendingImages[type];
+      const pendingPreview = pendingPreviews[type];
+
+      return (
+        <Box key={type} sx={{ mb: 4 }}>
+          <SectionHeader
+            title={type === "original" ? "Original Image" : "Animated Image"}
+            subtitle={
+              type === "original"
+                ? "Static profile photo — upload multiple, set one as primary"
+                : "GIF / WebP animation — upload multiple, set one as primary"
+            }
+            right={
+              <Stack direction="row" spacing={1}>
+                {pendingFile && (
+                  <Button
+                    className="adm-btn-primary"
+                    size="small"
+                    startIcon={isUploading ? null : <MdSave />}
+                    disabled={isUploading}
+                    onClick={() => onUploadProfileImage(type, pendingFile)}
+                  >
+                    {isUploading ? "Saving…" : "Save to DB"}
+                  </Button>
+                )}
+                <Button
+                  component="label"
+                  className="adm-btn-outlined"
+                  size="small"
+                  startIcon={<MdUpload />}
+                  fullWidth={isMobile}
+                  disabled={isUploading}
+                >
+                  {`Upload ${type === "original" ? "Original" : "Animated"}`}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (pendingPreviews[type]) URL.revokeObjectURL(pendingPreviews[type]);
+                      const previewUrl = URL.createObjectURL(file);
+                      setPendingImages((p) => ({ ...p, [type]: file }));
+                      setPendingPreviews((p) => ({ ...p, [type]: previewUrl }));
+                    }}
+                  />
+                </Button>
+              </Stack>
+            }
+          />
+
+          {/* Pending preview */}
+          {pendingPreview && (
+            <Paper
+              elevation={0}
+              className={`adm-glass ${isDark ? "" : "adm-glass-light"}`}
+              sx={{ p: 2, mb: 1.5, borderRadius: "16px", border: "1.5px dashed rgba(241,48,36,0.4)" }}
+            >
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box sx={{ width: 72, height: 72, borderRadius: "12px", overflow: "hidden", border: "2px solid rgba(241,48,36,0.4)", flexShrink: 0 }}>
+                  <img src={pendingPreview} alt="pending" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: "0.8rem", opacity: 0.7, mb: 0.3 }}>Selected (not saved yet)</Typography>
+                  <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>{pendingImages[type]?.name}</Typography>
+                </Box>
+                <IconButton size="small" onClick={() => {
+                  URL.revokeObjectURL(pendingPreview);
+                  setPendingImages((p) => { const n = { ...p }; delete n[type]; return n; });
+                  setPendingPreviews((p) => { const n = { ...p }; delete n[type]; return n; });
+                }}>
+                  <MdClose />
+                </IconButton>
+              </Stack>
+            </Paper>
+          )}
+
+          {/* Table of uploaded images */}
+          <TableWrap>
+            <Table size="small">
+              <THead cols={[
+                { label: "S.No", sx: { width: 50 } },
+                { label: "Thumbnail", sx: { width: 80 } },
+                { label: "Filename" },
+                { label: "Status", sx: { width: 120 } },
+                { label: "Uploaded", sx: { width: 140 } },
+                { label: "Actions", sx: { width: 140, textAlign: "right" } },
+              ]} />
+              <TableBody>
+                {imgsOfType.length === 0 && (
+                  <TRow><TC colSpan={6} sx={{ opacity: 0.55 }}>No {type} images uploaded yet.</TC></TRow>
+                )}
+                {imgsOfType.map((img, idx) => (
+                  <TRow key={img.id}>
+                    <TC sx={{ opacity: 0.55, fontWeight: 600 }}>{idx + 1}</TC>
+                    <TC>
+                      <Box sx={{ width: 48, height: 48, borderRadius: "8px", overflow: "hidden", border: "1.5px solid rgba(241,48,36,0.25)", background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}>
+                        <img
+                          src={imgBlobUrls[img.id] || ""}
+                          alt={img.filename}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          onError={(e) => { e.target.style.display = "none"; }}
+                        />
+                      </Box>
+                    </TC>
+                    <TC bold sx={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {img.filename}
+                    </TC>
+<TC>
+  {img.primary
+    ? (
+      <Chip
+        size="small"
+        label="Image Live"
+        icon={<MdCheckCircle style={{ color: "#4ade80", fontSize: "0.85rem" }} />}
+        sx={{
+          background: "rgba(34,197,94,0.12)",
+          border: "1px solid rgba(34,197,94,0.35)",
+          color: "#4ade80",
+          fontWeight: 700,
+          fontSize: "0.72rem",
+        }}
+      />
+    )
+    : <Typography variant="caption" sx={{ opacity: 0.4 }}>—</Typography>}
+</TC>
+<TC sx={{ opacity: 0.65, fontSize: "0.8rem" }}>{formatDate(img.uploadedAt)}</TC>
+<TC sx={{ textAlign: "right" }}>
+  <Stack direction="row" spacing={0.8} justifyContent="flex-end">
+    <Tooltip title="Preview">
+      <IconButton
+        size="small"
+        className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`}
+        onClick={() => {
+          setImgPreviewTitle(img.filename || type);
+          setImgPreviewSrc(imgBlobUrls[img.id] || "");
+          setImgPreviewOpen(true);
+        }}
+      >
+        <MdVisibility />
+      </IconButton>
+    </Tooltip>
+    <Tooltip title={img.primary ? "Already Live" : "Push to Viewer (Set as Live)"}>
+      <span>
+        <IconButton
+          size="small"
+          disabled={!!img.primary}
+          className={`adm-icon-btn ${isDark ? "" : "adm-icon-btn-light"}`}
+          sx={img.primary ? { opacity: 0.3, cursor: "default" } : {}}
+          onClick={async () => {
+            if (img.primary) return;
+            try {
+              setErr(""); setOk(""); setLoading(true);
+              await http.put(`/profile-image/set-primary/${img.id}`);
+              setOk(`"${img.filename}" is now live on your portfolio.`);
+              await fetchProfileImages();
+              bumpContentVersion();
+            } catch { setErr("Failed to push image to viewer."); }
+            finally { setLoading(false); }
+          }}
+        >
+          <MdUpload />
+        </IconButton>
+      </span>
+    </Tooltip>
+    <Tooltip title="Delete">
+      <IconButton
+        size="small"
+        className="adm-icon-btn-err"
+        onClick={() => onDeleteProfileImage(img.id, type)}
+      >
+        <MdDelete />
+      </IconButton>
+    </Tooltip>
+  </Stack>
+</TC>
+                  </TRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableWrap>
+
+          <Paper elevation={0} className={`adm-glass ${isDark ? "" : "adm-glass-light"}`} sx={{ p: 1.5, mt: 1, borderRadius: "12px" }}>
+            <Typography variant="caption" sx={{ opacity: 0.55 }}>
+              💡 Upload as many images as you want. Only the UPLOADED one shows on your portfolio. Click Upload icon to change which one is active.
+            </Typography>
+          </Paper>
+        </Box>
+      );
+    })}
+
+    {/* Image preview dialog */}
+    <Dialog
+      open={imgPreviewOpen}
+      onClose={() => setImgPreviewOpen(false)}
+      fullWidth maxWidth="md"
+      className={isDark ? "adm-dialog" : "adm-dialog adm-dialog-light"}
+    >
+      <DialogTitle className="adm-dialog-title">{imgPreviewTitle}</DialogTitle>
+      <DialogContent sx={{ p: 2, background: isDark ? "#000" : "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400 }}>
+        {imgPreviewSrc ? (
+          <img src={imgPreviewSrc} alt={imgPreviewTitle} style={{ maxWidth: "100%", maxHeight: 500, objectFit: "contain", borderRadius: 12 }} />
+        ) : (
+          <Typography sx={{ opacity: 0.5 }}>No preview available.</Typography>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={() => setImgPreviewOpen(false)} size="small" className="adm-btn-outlined" startIcon={<MdClose />}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  </Box>
+)}
+
+<ConfirmDialog
+            open={confirmOpen}
+            title={confirmPayload.title}
+            description={confirmPayload.description}
+            confirmText={confirmPayload.confirmText}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={confirmPayload.onConfirm || (() => setConfirmOpen(false))}
+          />
+
+        {/* Reorder Menu */}
+        <Menu
+          anchorEl={reorderMenu.anchorEl}
+          anchorReference="anchorPosition"
+          anchorPosition={
+            reorderMenu.position
+              ? { top: reorderMenu.position.top, left: reorderMenu.position.left }
+              : undefined
+          }
+          open={reorderMenu.open}
+          onClose={closeReorderMenu}
+          PaperProps={{ className: isDark ? "adm-dialog" : "adm-dialog adm-dialog-light", sx: { minWidth: 140 } }}
+        >
+          <Typography sx={{ px: 2, py: 0.8, fontSize: "0.75rem", fontWeight: 800, opacity: 0.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Move to position
+          </Typography>
+          {reorderMenu.section && getSectionItems(reorderMenu.section).map((item, idx) => {
+            const currentPos = getSectionItems(reorderMenu.section).findIndex(x => x.id === reorderMenu.itemId) + 1;
+            const itemName = item.title || item.company || item.degree || item.language || item.name || "";
+            return (
+              <MenuItem
+                key={idx + 1}
+                selected={currentPos === idx + 1}
+                onClick={() => selectOrder(reorderMenu.section, reorderMenu.itemId, idx + 1)}
+                sx={{ fontWeight: currentPos === idx + 1 ? 800 : 500, fontSize: "0.875rem" }}
+              >
+                {idx + 1}. {itemName.slice(0, 18)}{itemName.length > 18 ? "…" : ""}
+                {currentPos === idx + 1 ? <Typography component="span" sx={{ ml: 1, fontSize: "0.72rem", opacity: 0.5 }}>(current)</Typography> : null}
+              </MenuItem>
+            );
+          })}
+        </Menu>
+
+        </Container>
+      </Box>
+    </Box>
+  );
+}

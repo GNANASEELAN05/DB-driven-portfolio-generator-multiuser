@@ -40,35 +40,46 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
 
-                // preflight
+                // ── preflight ──────────────────────────────────────────────
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // auth
+                // ── auth ───────────────────────────────────────────────────
                 .requestMatchers("/api/auth/**").permitAll()
 
-                // ── PAYMENT (requires JWT, handled inside controller) ──
+                // ── payment (JWT required, enforced inside controller) ──────
                 .requestMatchers("/api/payment/**").authenticated()
 
-                // PUBLIC VIEW
+                // ── PUBLIC: portfolio viewer GETs ──────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/u/*/portfolio/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/u/*/projects/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/u/*/resume/**").permitAll()
 
-                // profile-image public GET (viewer)
+                // ── PUBLIC: profile-image viewer GETs ──────────────────────
+                // GET /api/profile-image/list
+                // GET /api/profile-image/{type}   (original / animated)
+                // GET /api/profile-image/view/{id}
                 .requestMatchers(HttpMethod.GET, "/api/profile-image/**").permitAll()
 
-                // ADMIN
+                // ── ADMIN: projects ────────────────────────────────────────
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/projects/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/projects/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/projects/**").hasRole("ADMIN")
 
+                // ── ADMIN: portfolio (profile, skills, socials, achievements,
+                //           languages, education, experience, certificates) ──
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/portfolio/**").hasRole("ADMIN")
 
+                // ── ADMIN: resume ──────────────────────────────────────────
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/resume/**").hasRole("ADMIN")
+
+                // ── ADMIN: profile-image (upload / delete / set-primary) ───
+                .requestMatchers(HttpMethod.POST,   "/api/profile-image/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/profile-image/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/profile-image/**").hasRole("ADMIN")
 
                 .anyRequest().permitAll()
             )
@@ -83,13 +94,26 @@ public class SecurityConfig {
 
         cfg.setAllowedOrigins(List.of(
             "http://localhost:5173",
+            "http://localhost:5174",
             "http://127.0.0.1:5173",
-            "https://portfolio-generator-by-gnanaseelan.vercel.app"
+            "https://portfolio-generator-by-gnanaseelan.vercel.app",
+            "https://gnanaseelan-v-portfolio.vercel.app"
         ));
 
-        cfg.setAllowedMethods(List.of("*"));
-        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        cfg.setAllowedHeaders(List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Origin",
+            "X-Requested-With"
+        ));
+        cfg.setExposedHeaders(List.of(
+            "Content-Disposition",
+            "Content-Type"
+        ));
         cfg.setAllowCredentials(true);
+        cfg.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
