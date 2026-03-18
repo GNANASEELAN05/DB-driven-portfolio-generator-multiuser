@@ -723,7 +723,7 @@ const onPreviewResume = async () => {
             <Tooltip title="Go to Admin">
               <button
                 className="sp1-topbtn sp1-topbtn-admin"
-                onClick={() => navigate(`/${username}/adminpanel`)}
+                onClick={() => navigate(`/${username}/adminpanel/premium1`)}
                 aria-label="Admin"
               >
                 <MdAdminPanelSettings size={17} />
