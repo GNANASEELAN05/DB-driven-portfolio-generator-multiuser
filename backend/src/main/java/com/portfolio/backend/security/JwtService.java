@@ -27,14 +27,30 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
+    // ── Standard admin/user token ─────────────────────────────────────────────
     public String generateToken(String username, String role) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
-        // Store role cleanly like "ADMIN" (or "ROLE_ADMIN" if you want)
         return Jwts.builder()
                 .subject(username)
                 .claim("role", role)
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(key)
+                .compact();
+    }
+
+    // ── Controller (master admin) token ───────────────────────────────────────
+    // Uses the same secret key but embeds role=CONTROLLER.
+    // Expiry: 8 hours (fixed) — controller sessions are shorter by design.
+    public String generateControllerToken(String username) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + 8L * 60 * 60 * 1000); // 8 hours
+
+        return Jwts.builder()
+                .subject(username)
+                .claim("role", "CONTROLLER")
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)

@@ -34,10 +34,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        /* 🔥🔥🔥 VERY IMPORTANT FIX
-           Skip JWT check for login endpoint
-        */
-        if (path.equals("/api/auth/login")) {
+        // Skip JWT check for public login endpoints
+        if (path.equals("/api/auth/login") || path.equals("/api/master-admin/login")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -57,6 +55,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         String username = jwtService.extractUsername(token);
+        String role     = jwtService.extractRole(token);
+
+        // Controller tokens must NOT be treated as regular admin users.
+        // They carry role=CONTROLLER — skip loading from UserDetailsService
+        // so they don't accidentally pass ROLE_ADMIN checks on portfolio endpoints.
+        if ("CONTROLLER".equals(role)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);

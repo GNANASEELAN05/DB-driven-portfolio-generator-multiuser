@@ -7,13 +7,19 @@ import {
   TextField,
   Typography,
   Alert,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import { MdLock, MdLogin } from "react-icons/md";
-import { useParams } from "react-router-dom";
+import { RiShieldKeyholeFill } from "react-icons/ri";
+import { useParams, useNavigate } from "react-router-dom";
 import { adminLogin } from "../api/portfolio";
+
+const CONTROLLER_PREFIX = "Controller-";
 
 export default function AdminLogin() {
   const { username: urlUser } = useParams();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     document.title = "Admin Login";
@@ -32,16 +38,36 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  // ── Controller icon click ────────────────────────────────────
+  const goToControllerLogin = () => {
+    navigate("/controller/login");
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setErr("");
     setLoading(true);
 
     try {
-      const typed = username.trim();              // keep as typed
-      const uLower = typed.toLowerCase();         // only for URL + lookup
+      const typed = username.trim();
+      const uLower = typed.toLowerCase();
       const expected = (urlUser || "").trim().toLowerCase();
 
+      // ── Both fields have Controller- prefix → silently redirect ──
+      if (typed.startsWith(CONTROLLER_PREFIX) && password.startsWith(CONTROLLER_PREFIX)) {
+        navigate("/controller/login");
+        setLoading(false);
+        return;
+      }
+
+      // ── Only one field has prefix → block and guide user ──
+      if (typed.startsWith(CONTROLLER_PREFIX) || password.startsWith(CONTROLLER_PREFIX)) {
+        setErr('Controller accounts must use the Controller Portal. Click the 🔐 icon at the top-right.');
+        setLoading(false);
+        return;
+      }
+
+      // ── Normal admin login ──────────────────────────────────
       if (expected && uLower !== expected) {
         setErr(`Please login using your own URL username: ${expected}`);
         setLoading(false);
@@ -64,7 +90,6 @@ export default function AdminLogin() {
         return;
       }
 
-      // ✅ backend returns original stored username
       const serverDisplay =
         res?.data?.username && typeof res.data.username === "string"
           ? res.data.username
@@ -73,8 +98,8 @@ export default function AdminLogin() {
       localStorage.removeItem("token");
       sessionStorage.clear();
       localStorage.setItem("token", token);
-      localStorage.setItem("auth_user", uLower);          // always lowercase for URL
-      localStorage.setItem("display_name", serverDisplay); // always original from DB
+      localStorage.setItem("auth_user", uLower);
+      localStorage.setItem("display_name", serverDisplay);
 
       window.location.replace(`/${uLower}/adminpanel`);
     } catch (error) {
@@ -106,8 +131,38 @@ export default function AdminLogin() {
             background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.15)",
             boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+            position: "relative",   // ← needed for absolute icon
           }}
         >
+          {/* ── Controller Portal icon — top-right corner ── */}
+          <Tooltip title="Controller Portal" placement="left" arrow>
+            <IconButton
+              onClick={goToControllerLogin}
+              size="small"
+              sx={{
+                position: "absolute",
+                top: 14,
+                right: 14,
+                color: "rgba(255,165,0,0.55)",
+                background: "rgba(255,165,0,0.07)",
+                border: "1px solid rgba(255,165,0,0.2)",
+                width: 34,
+                height: 34,
+                fontSize: 17,
+                transition: "all 0.25s ease",
+                "&:hover": {
+                  color: "#ffd700",
+                  background: "rgba(255,165,0,0.16)",
+                  border: "1px solid rgba(255,165,0,0.55)",
+                  boxShadow: "0 0 14px rgba(255,165,0,0.35)",
+                  transform: "scale(1.1)",
+                },
+              }}
+            >
+              <RiShieldKeyholeFill />
+            </IconButton>
+          </Tooltip>
+
           <Stack spacing={3}>
             <Stack alignItems="center" spacing={1}>
               <Box

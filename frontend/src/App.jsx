@@ -10,13 +10,8 @@
 //   PREMIUM1 ADMIN   /:username/adminpanel/premium1 → AdminDashboardPremium1.jsx
 //   PREMIUM2 ADMIN   /:username/adminpanel/premium2 → AdminDashboardPremium2.jsx
 //
-//   Admin icon in Home.jsx       → /:username/adminpanel
-//   Admin icon in HomePremium1   → /:username/adminpanel/premium1
-//   Admin icon in HomePremium2   → /:username/adminpanel/premium2
-//
-//   RequireAuth on free admin    → redirects owner to /:username/adminpanel
-//   RequireAuth on premium1 admin→ redirects owner to /:username/adminpanel/premium1
-//   RequireAuth on premium2 admin→ redirects owner to /:username/adminpanel/premium2
+//   CONTROLLER       /controller/login       → ControllerLogin.jsx
+//   CONTROLLER DASH  /controller/dashboard   → ControllerDashboard.jsx (future)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -32,6 +27,7 @@ import AdminDashboardPremium1 from "./pages/AdminDashboardPremium1";
 import AdminDashboardPremium2 from "./pages/AdminDashboardPremium2";
 import HomePremium1 from "./pages/HomePremium1";
 import HomePremium2 from "./pages/HomePremium2";
+import ControllerLogin from "./pages/ControllerLogin";   // ← NEW
 
 const makeTheme = (mode, flavor = "viewer") => {
   const viewerPrimary   = "#7C3AED";
@@ -102,9 +98,6 @@ export default function App() {
   const hasToken    = () => !!localStorage.getItem("token");
 
   // ── Redirect "/" to best available page ──────────────────────────────────
-  // FREE:     → /:authUser/adminpanel
-  // PREMIUM1: → /:authUser/premium1
-  // PREMIUM2: → /:authUser/premium2
   const RedirectToBest = () => {
     const authUser = getAuthUser();
     if (!hasToken() || !authUser) return <Navigate to="/register" replace />;
@@ -119,7 +112,6 @@ export default function App() {
   const IfAuthedGoDashboard = ({ children }) => {
     const authUser = getAuthUser();
     if (hasToken() && authUser) {
-      // Send to their correct admin dashboard
       const hasPremium2 = localStorage.getItem(`premium2_${authUser}`) === "true";
       const hasPremium1 = localStorage.getItem(`premium1_${authUser}`) === "true";
       if (hasPremium2) return <Navigate to={`/${authUser}/adminpanel/premium2`} replace />;
@@ -129,19 +121,23 @@ export default function App() {
     return children;
   };
 
+  // ── Skip controller login if already authed as controller ─────────────────
+  const IfControllerAuthedGoDashboard = ({ children }) => {
+    if (localStorage.getItem("controller_token")) {
+      return <Navigate to="/controller/dashboard" replace />;
+    }
+    return children;
+  };
+
   // ── Protect admin routes ──────────────────────────────────────────────────
-  // dashboardType: "free" | "premium1" | "premium2"
-  // If wrong user tries to access, redirect to their own correct admin panel
   const RequireAuth = ({ children, dashboardType = "free" }) => {
     const { username } = useParams();
     const authUser = getAuthUser();
 
-    // Not logged in at all
     if (!hasToken() || !authUser) return <Navigate to="/admin-login" replace />;
 
     const urlUser = (username || "").trim().toLowerCase();
 
-    // Logged-in user trying to access another user's panel
     if (urlUser && authUser !== urlUser) {
       const hasPremium2 = localStorage.getItem(`premium2_${authUser}`) === "true";
       const hasPremium1 = localStorage.getItem(`premium1_${authUser}`) === "true";
@@ -150,8 +146,6 @@ export default function App() {
       return <Navigate to={`/${authUser}/adminpanel`} replace />;
     }
 
-    // Allow owner to visit ANY tier's admin panel freely.
-    // Only block access to premium tiers the user hasn't purchased.
     const hasPremium2 = localStorage.getItem(`premium2_${authUser}`) === "true";
     const hasPremium1 = localStorage.getItem(`premium1_${authUser}`) === "true";
 
@@ -167,7 +161,6 @@ export default function App() {
   };
 
   // ── /:username viewer — redirect owner to their best premium ──────────────
-  // Visitors see the free Home; owner gets redirected to their premium page
   const PremiumRedirectWrapper = () => {
     const { username } = useParams();
     const authUser = getAuthUser();
@@ -199,10 +192,27 @@ export default function App() {
           </IfAuthedGoDashboard>
         } />
 
+        {/* ── Controller routes ── */}
+        <Route path="/controller/login" element={
+          <IfControllerAuthedGoDashboard>
+            <ThemeProvider theme={adminTheme}><CssBaseline /><ControllerLogin /></ThemeProvider>
+          </IfControllerAuthedGoDashboard>
+        } />
+        {/* Placeholder — replace with real ControllerDashboard later */}
+        <Route path="/controller/dashboard" element={
+          <ThemeProvider theme={adminTheme}><CssBaseline />
+            <div style={{color:"#ffd700",padding:40,fontFamily:"monospace",background:"#000308",minHeight:"100vh"}}>
+              <h1>🛡 Controller Dashboard</h1>
+              <p>Welcome, {localStorage.getItem("controller_name") || "Controller"}</p>
+              <button onClick={()=>{localStorage.removeItem("controller_token");localStorage.removeItem("controller_name");window.location.replace("/controller/login")}}
+                style={{marginTop:20,padding:"10px 20px",background:"#ffd700",color:"#000",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
+                Logout
+              </button>
+            </div>
+          </ThemeProvider>
+        } />
+
         {/* ── Public viewers ── */}
-        {/* FREE:     /:username              → Home.jsx        */}
-        {/* PREMIUM1: /:username/premium1     → HomePremium1    */}
-        {/* PREMIUM2: /:username/premium2     → HomePremium2    */}
         <Route path="/:username" element={
           <ThemeProvider theme={viewerTheme}><CssBaseline /><PremiumRedirectWrapper /></ThemeProvider>
         } />
@@ -225,9 +235,6 @@ export default function App() {
         } />
 
         {/* ── Admin dashboards ── */}
-        {/* FREE ADMIN:     /:username/adminpanel          → AdminDashboard         */}
-        {/* PREMIUM1 ADMIN: /:username/adminpanel/premium1 → AdminDashboardPremium1 */}
-        {/* PREMIUM2 ADMIN: /:username/adminpanel/premium2 → AdminDashboardPremium2 */}
         <Route path="/:username/adminpanel" element={
           <RequireAuth dashboardType="free">
             <ThemeProvider theme={adminTheme}><CssBaseline />

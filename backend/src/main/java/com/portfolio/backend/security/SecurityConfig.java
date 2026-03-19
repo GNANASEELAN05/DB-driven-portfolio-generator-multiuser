@@ -46,6 +46,10 @@ public class SecurityConfig {
                 // ── auth ───────────────────────────────────────────────────
                 .requestMatchers("/api/auth/**").permitAll()
 
+                // ── master / controller login ──────────────────────────────
+                .requestMatchers("/api/master-admin/login").permitAll()
+                .requestMatchers("/api/master-admin/verify").permitAll()
+
                 // ── payment (JWT required, enforced inside controller) ──────
                 .requestMatchers("/api/payment/**").authenticated()
 
@@ -55,9 +59,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/u/*/resume/**").permitAll()
 
                 // ── PUBLIC: profile-image viewer GETs ──────────────────────
-                // GET /api/profile-image/list
-                // GET /api/profile-image/{type}   (original / animated)
-                // GET /api/profile-image/view/{id}
                 .requestMatchers(HttpMethod.GET, "/api/profile-image/**").permitAll()
 
                 // ── ADMIN: projects ────────────────────────────────────────
