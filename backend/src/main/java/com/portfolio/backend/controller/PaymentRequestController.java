@@ -2,8 +2,10 @@ package com.portfolio.backend.controller;
 
 import com.portfolio.backend.model.PaymentRequest;
 import com.portfolio.backend.model.UpiQrImage;
+import com.portfolio.backend.model.User;
 import com.portfolio.backend.repository.PaymentRequestRepository;
 import com.portfolio.backend.repository.UpiQrImageRepository;
+import com.portfolio.backend.repository.UserRepository;
 import com.portfolio.backend.security.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -23,9 +25,12 @@ public class PaymentRequestController {
     private UpiQrImageRepository upiQrImageRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private JwtService jwtService;
 
-    // ── Helper: check controller token using existing JwtService methods ─────
+    // ── Helper: check controller token ─────────────────────────────────────
     private boolean isController(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return false;
         try {
@@ -41,7 +46,7 @@ public class PaymentRequestController {
     // PAYMENT REQUESTS
     // ════════════════════════════════════════
 
-    // POST /api/payment-requests — submit a new request (public, user submits)
+    // POST /api/payment-requests — submit a new request (public)
     @PostMapping("/payment-requests")
     public ResponseEntity<?> submitRequest(@RequestBody Map<String, Object> body) {
         try {
@@ -60,7 +65,7 @@ public class PaymentRequestController {
         }
     }
 
-    // GET /api/master-admin/payment-requests — controller views all requests
+    // GET /api/master-admin/payment-requests — controller views all
     @GetMapping("/master-admin/payment-requests")
     public ResponseEntity<?> getAllRequests(
             @RequestHeader(value = "Authorization", required = false) String auth) {
@@ -69,6 +74,7 @@ public class PaymentRequestController {
     }
 
     // PATCH /api/master-admin/payment-requests/{id}/approve
+    // Also updates User.hasPremium1 / hasPremium2 so the flag is persisted
     @PatchMapping("/master-admin/payment-requests/{id}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long id,
@@ -77,6 +83,14 @@ public class PaymentRequestController {
         return paymentRequestRepository.findById(id).map(req -> {
             req.setStatus("APPROVED");
             paymentRequestRepository.save(req);
+
+            // ── KEY FIX: persist premium flag on User row ──────────────────
+            userRepository.findByUsername(req.getUsername()).ifPresent(user -> {
+                if (req.getVersion() == 1) user.setHasPremium1(true);
+                if (req.getVersion() == 2) user.setHasPremium2(true);
+                userRepository.save(user);
+            });
+
             return ResponseEntity.ok(Map.of("message", "Approved"));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -94,18 +108,28 @@ public class PaymentRequestController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // GET /api/payment-requests/status?username=X&version=1
+    // GET /api/payment-requests/status?username=X
+    // Returns { hasPremium1: bool, hasPremium2: bool } — no version param needed
     @GetMapping("/payment-requests/status")
-    public ResponseEntity<?> getStatus(
-            @RequestParam String username,
-            @RequestParam Integer version) {
-        List<PaymentRequest> list = paymentRequestRepository
-                .findByUsernameOrderByCreatedAtDesc(username);
-        return list.stream()
-                .filter(r -> r.getVersion().equals(version))
-                .findFirst()
-                .map(r -> ResponseEntity.ok(Map.of("status", r.getStatus())))
-                .orElse(ResponseEntity.ok(Map.of("status", "NONE")));
+    public ResponseEntity<?> getStatus(@RequestParam String username) {
+        // Primary source: User table (set on approve)
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        boolean p1 = userOpt.map(User::isHasPremium1).orElse(false);
+        boolean p2 = userOpt.map(User::isHasPremium2).orElse(false);
+
+        // Fallback: scan approved payment_requests if User flags not set yet
+        if (!p1 || !p2) {
+            List<PaymentRequest> list = paymentRequestRepository
+                    .findByUsernameOrderByCreatedAtDesc(username);
+            for (PaymentRequest r : list) {
+                if ("APPROVED".equals(r.getStatus())) {
+                    if (r.getVersion() == 1) p1 = true;
+                    if (r.getVersion() == 2) p2 = true;
+                }
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("hasPremium1", p1, "hasPremium2", p2));
     }
 
     // ════════════════════════════════════════
@@ -145,7 +169,7 @@ public class PaymentRequestController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // GET /api/master-admin/upi-qr — list metadata (no image bytes)
+    // GET /api/master-admin/upi-qr — list metadata
     @GetMapping("/master-admin/upi-qr")
     public ResponseEntity<?> listQr(
             @RequestHeader(value = "Authorization", required = false) String auth) {

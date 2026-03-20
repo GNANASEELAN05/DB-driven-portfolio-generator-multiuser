@@ -1537,6 +1537,16 @@ function RequestsPage({ dark }) {
       setOk("Request approved! Premium unlocked for user.");
       setDetail(null);
       await fetchRequests();
+      // Re-fetch pending count badge
+      try {
+        const rr = await apiFetch("/master-admin/payment-requests");
+        if (rr.ok) {
+          const rdata = await rr.json();
+          const arr2 = Array.isArray(rdata) ? rdata : [];
+          // Update parent pendingCount via a custom event
+          window.dispatchEvent(new CustomEvent("cd-pending-update", { detail: arr2.filter(r => r.status === "PENDING").length }));
+        }
+      } catch {}
     } catch (e) { setErr("Approve failed: " + e.message); }
     finally { setActing(p => ({ ...p, [id]: undefined })); }
   };
@@ -1818,6 +1828,12 @@ export default function ControllerDashboard() {
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    const handler = (e) => setPendingCount(e.detail);
+    window.addEventListener("cd-pending-update", handler);
+    return () => window.removeEventListener("cd-pending-update", handler);
+  }, []);
 
   const logout = () => {
     localStorage.removeItem("controller_token");

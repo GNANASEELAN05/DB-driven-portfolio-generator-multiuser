@@ -28,8 +28,8 @@ const STEP_FORM     = "form";     // "I've Paid" form
 export default function VersionPickerModal({
   open,
   onClose,
-  hasPremium1,
-  hasPremium2,
+  hasPremium1: hasPremium1Prop,
+  hasPremium2: hasPremium2Prop,
   username,
   onPremiumUnlocked,
   onGenerateFree,
@@ -41,6 +41,11 @@ export default function VersionPickerModal({
   const [payErr, setPayErr]   = useState("");
   const [payOk, setPayOk]     = useState("");
   const [pdfUrl, setPdfUrl]   = useState(null);
+
+  // Live premium status — re-fetched every time modal opens
+  const [hasPremium1, setHasPremium1] = useState(hasPremium1Prop);
+  const [hasPremium2, setHasPremium2] = useState(hasPremium2Prop);
+  const [premiumLoading, setPremiumLoading] = useState(false);
 
   // ── Preview PDF URLs ────────────────────────────────────────────────────
   const [previewPdfUrls, setPreviewPdfUrls] = useState({ premium1: null, premium2: null });
@@ -60,9 +65,52 @@ export default function VersionPickerModal({
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formDone, setFormDone]     = useState(false);
 
+  // ── Sync prop changes into local state ─────────────────────────────────
+  useEffect(() => {
+    setHasPremium1(hasPremium1Prop);
+    setHasPremium2(hasPremium2Prop);
+  }, [hasPremium1Prop, hasPremium2Prop]);
+
+  // ── Fetch live premium status ───────────────────────────────────────────
+  const fetchPremiumLive = async () => {
+    if (!username) return;
+    const authUser = (localStorage.getItem("auth_user") || username || "").toLowerCase();
+
+    // Step 1: read localStorage instantly
+    const lsP1 = localStorage.getItem(`premium1_${authUser}`) === "true";
+    const lsP2 = localStorage.getItem(`premium2_${authUser}`) === "true";
+    if (lsP1) setHasPremium1(true);
+    if (lsP2) setHasPremium2(true);
+
+    // Always hit server — localStorage may be stale before approval
+    setPremiumLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${API_BASE}/payment-requests/status?username=${encodeURIComponent(authUser)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        // Backend always returns { hasPremium1: bool, hasPremium2: bool }
+        const p1 = Boolean(data.hasPremium1) || lsP1;
+        const p2 = Boolean(data.hasPremium2) || lsP2;
+        setHasPremium1(p1);
+        setHasPremium2(p2);
+        if (p1) localStorage.setItem(`premium1_${authUser}`, "true");
+        if (p2) localStorage.setItem(`premium2_${authUser}`, "true");
+        if ((p1 || p2) && typeof onPremiumUnlocked === "function") {
+          onPremiumUnlocked({ hasPremium1: p1, hasPremium2: p2 });
+        }
+      }
+    } catch { /* silent */ }
+    finally { setPremiumLoading(false); }
+  };
+
   // ── Fetch preview PDFs + QR URLs on open ───────────────────────────────
   useEffect(() => {
     if (!open) return;
+    fetchPremiumLive();
 
     const fetchPreviews = async () => {
       try {
@@ -77,17 +125,12 @@ export default function VersionPickerModal({
       } catch { /* leave null */ }
     };
 
-    const checkQr = async () => {
-      try {
-        const [q1, q2] = await Promise.allSettled([
-          fetch(`${API_BASE}/upi-qr/premium1/view`, { method: "HEAD" }),
-          fetch(`${API_BASE}/upi-qr/premium2/view`, { method: "HEAD" }),
-        ]);
-        setQrUrls({
-          premium1: q1.status === "fulfilled" && q1.value?.ok ? `${API_BASE}/upi-qr/premium1/view` : null,
-          premium2: q2.status === "fulfilled" && q2.value?.ok ? `${API_BASE}/upi-qr/premium2/view` : null,
-        });
-      } catch { /* leave null */ }
+const checkQr = () => {
+      // Set URLs directly — endpoints are permitAll, no HEAD check needed
+      setQrUrls({
+        premium1: `${API_BASE}/upi-qr/premium1/view?t=${Date.now()}`,
+        premium2: `${API_BASE}/upi-qr/premium2/view?t=${Date.now()}`,
+      });
     };
 
     fetchPreviews();
@@ -145,6 +188,35 @@ export default function VersionPickerModal({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setFormDone(true);
+      // Poll every 5s using the correct endpoint
+      const authUserForPoll = (localStorage.getItem("auth_user") || username || "").toLowerCase();
+      const pollInterval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const res = await fetch(
+            `${API_BASE}/payment-requests/status?username=${encodeURIComponent(authUserForPoll)}`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            // Backend always returns { hasPremium1: bool, hasPremium2: bool }
+            const p1 = Boolean(data.hasPremium1) || localStorage.getItem(`premium1_${authUserForPoll}`) === "true";
+            const p2 = Boolean(data.hasPremium2) || localStorage.getItem(`premium2_${authUserForPoll}`) === "true";
+            if ((activeVersion === 1 && p1) || (activeVersion === 2 && p2)) {
+              setHasPremium1(p1);
+              setHasPremium2(p2);
+              if (p1) localStorage.setItem(`premium1_${authUserForPoll}`, "true");
+              if (p2) localStorage.setItem(`premium2_${authUserForPoll}`, "true");
+              if (typeof onPremiumUnlocked === "function") {
+                onPremiumUnlocked({ hasPremium1: p1, hasPremium2: p2 });
+              }
+              clearInterval(pollInterval);
+            }
+          }
+        } catch { /* silent */ }
+      }, 5000);
+      // Stop polling after 10 min
+      setTimeout(() => clearInterval(pollInterval), 600000);
     } catch (e) {
       setFormErr("Submission failed: " + e.message);
     } finally {
@@ -345,13 +417,38 @@ export default function VersionPickerModal({
 
               {formDone ? (
                 /* ── Success state ── */
-                <Box sx={{ textAlign: "center", py: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <Box sx={{ textAlign: "center", py: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                   <Box sx={{ fontSize: 64 }}>🎉</Box>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>Request Submitted!</Typography>
                   <Typography variant="body2" sx={{ opacity: 0.7, maxWidth: 340 }}>
                     Your payment details have been sent for review. Once approved, your <strong>Premium {activeVersion}</strong> portfolio will be unlocked automatically.
                   </Typography>
-                  <Button variant="outlined" sx={{ borderRadius: 999, mt: 1, borderColor: activePlan.color, color: activePlan.color }} onClick={onClose}>
+                  {/* Show Generate button if already approved */}
+                  {((activeVersion === 1 && hasPremium1) || (activeVersion === 2 && hasPremium2)) ? (
+                    <Button
+                      variant="contained"
+                      sx={{ borderRadius: 999, mt: 1, fontWeight: 800, background: `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}cc)` }}
+                      onClick={activeVersion === 1 ? onGeneratePremium1 : onGeneratePremium2}
+                    >
+                      ✅ Generate Premium {activeVersion} Now
+                    </Button>
+                  ) : (
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.6, fontSize: 13 }}>
+                        {premiumLoading ? <CircularProgress size={14} /> : null}
+                        <Typography variant="caption">Waiting for approval…</Typography>
+                      </Box>
+                      <Button
+                        variant="outlined" size="small"
+                        sx={{ borderRadius: 999, borderColor: activePlan.color, color: activePlan.color }}
+                        onClick={fetchPremiumLive}
+                        startIcon={premiumLoading ? <CircularProgress size={12} color="inherit" /> : null}
+                      >
+                        Check Status
+                      </Button>
+                    </Box>
+                  )}
+                  <Button variant="outlined" sx={{ borderRadius: 999, borderColor: "rgba(0,0,0,0.2)", color: "text.secondary" }} onClick={onClose}>
                     Close
                   </Button>
                 </Box>
