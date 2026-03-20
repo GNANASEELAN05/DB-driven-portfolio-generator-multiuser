@@ -64,9 +64,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/u/*/projects").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/u/*/projects/featured").permitAll()
 
-                // ── CONTROLLER: resume list-admin (accepts controller token)
-                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/list-admin").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/*/view").authenticated()
+                // ── CONTROLLER/OWNER: resume admin endpoints ───────────────
+                // permitAll here so the token (CONTROLLER or ADMIN) passes through
+                // to the controller method which does its own isOwnerOrController() check
+                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/list-admin").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/*/view").permitAll()
 
                 // ── PUBLIC: resume download ────────────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/u/*/resume/download").permitAll()
@@ -84,7 +86,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/portfolio/**").hasRole("ADMIN")
 
-                // ── ADMIN: resume (non-admin-list GETs blocked above) ──────
+                // ── ADMIN: resume write operations ─────────────────────────
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/resume/**").hasRole("ADMIN")

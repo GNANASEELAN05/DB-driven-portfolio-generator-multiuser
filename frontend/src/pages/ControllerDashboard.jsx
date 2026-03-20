@@ -119,9 +119,9 @@ function UserDetailPanel({ user, onClose, dark }) {
       apiFetch(`/u/${username}/portfolio/socials`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/education`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/experience`).then(r => r.json()),
-      apiFetch(`/u/${username}/portfolio/language-experience`).then(r => r.json()).catch(() =>
-      apiFetch(`/u/${username}/portfolio/languages`).then(r => r.json()).catch(() => [])
-      ),
+      apiFetch(`/u/${username}/portfolio/languages`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .catch(() => []),
       apiFetch(`/u/${username}/resume/list-admin`).then(r => r.json()).catch(() => []),
     ]).then(results => {
       const [profile, skills, projects, achievements, socials, education, experience, languages, resumes] = results;
@@ -143,6 +143,7 @@ function UserDetailPanel({ user, onClose, dark }) {
     { id: "overview",   label: "Overview" },
     { id: "projects",   label: "Projects" },
     { id: "skills",     label: "Skills" },
+    { id: "languages",  label: "Languages" },
     { id: "education",  label: "Education" },
     { id: "experience", label: "Experience" },
     { id: "achievements", label: "Achievements" },
@@ -162,6 +163,7 @@ function UserDetailPanel({ user, onClose, dark }) {
   const experience   = Array.isArray(data.experience?.data)   ? data.experience.data
                      : Array.isArray(data.experience)         ? data.experience   : [];
   const languages    = Array.isArray(data.languages?.data)    ? data.languages.data
+                     : Array.isArray(data.languages?.content) ? data.languages.content
                      : Array.isArray(data.languages)          ? data.languages    : [];
   const socials      = data.socials?.data      || data.socials      || {};
   const skillsRaw    = data.skills?.data       || data.skills       || {};
@@ -419,13 +421,46 @@ function UserDetailPanel({ user, onClose, dark }) {
                       <div className="cd-skills-cat">Language Experience</div>
                       {languages.map((l, i) => (
                         <div className="cd-lang-row" key={i}>
-                          <span className="cd-lang-name">{l.language || l.name}</span>
-                          <span className={`cd-lang-level cd-level-${(l.level || "").toLowerCase()}`}>{l.level}</span>
-                          <span className="cd-lang-years">{l.years} yr{l.years > 1 ? "s" : ""}</span>
+                          <span className="cd-lang-name">{l.language || l.name || "—"}</span>
+                          {l.experience && (
+                            <span className="cd-lang-level" style={{
+                              background: "rgba(6,182,212,0.08)",
+                              border: "1px solid rgba(6,182,212,0.2)",
+                              color: "#67e8f9", padding: "2px 7px",
+                              borderRadius: 5, fontSize: 11, fontWeight: 700,
+                            }}>{l.experience}</span>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+              {tab === "languages" && (
+                <div className="cd-panel-section">
+                  {languages.length === 0
+                    ? <div className="cd-empty">No language experience added yet.</div>
+                    : languages.map((l, i) => (
+                      <div className="cd-item-card" key={l.id || i}>
+                        <div className="cd-item-row" style={{ alignItems: "center", gap: 10 }}>
+                          <span className="cd-item-serial">{i + 1}.</span>
+                          <span className="cd-item-title" style={{ flex: 1 }}>
+                            {l.language || l.name || "—"}
+                          </span>
+                          {l.experience && (
+                            <span style={{
+                              padding: "3px 10px", borderRadius: 999,
+                              fontSize: 11.5, fontWeight: 700,
+                              background: "rgba(6,182,212,0.08)",
+                              border: "1px solid rgba(6,182,212,0.25)",
+                              color: "#67e8f9", flexShrink: 0,
+                            }}>
+                              {l.experience}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                 </div>
               )}
               {tab === "education" && (

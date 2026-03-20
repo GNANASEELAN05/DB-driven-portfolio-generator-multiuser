@@ -38,18 +38,23 @@ public class ResumeController {
     }
 
     /**
-     * Returns true if the caller is either:
-     *  - the portfolio owner (ROLE_ADMIN with matching username), OR
-     *  - the platform controller (ROLE_CONTROLLER)
+     * Accepts:
+     *  - portfolio owner (ROLE_ADMIN, username matches), OR
+     *  - platform controller (ROLE_CONTROLLER — any username)
      */
     private boolean isOwnerOrController(String username) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) return false;
-        boolean isController = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_CONTROLLER"));
+        if (auth == null) return false;
+
+        // Check ROLE_CONTROLLER — controller token bypasses username matching
+        boolean isController = auth.getAuthorities() != null &&
+                auth.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_CONTROLLER".equals(a.getAuthority()));
         if (isController) return true;
-        return auth.getName() != null &&
-               auth.getName().trim().toLowerCase().equals(norm(username));
+
+        // Check portfolio owner
+        if (auth.getName() == null) return false;
+        return auth.getName().trim().toLowerCase().equals(norm(username));
     }
 
     // =========================================================
@@ -77,12 +82,14 @@ public class ResumeController {
     }
 
     // =========================================================
-    // CONTROLLER: Get all resumes for any user (controller token)
+    // CONTROLLER: Get all resumes for any user
+    // Accepts ROLE_CONTROLLER token OR owner token
     // =========================================================
     @GetMapping("/list-admin")
     public ResponseEntity<?> getAllAdmin(@PathVariable String username) {
         if (!isOwnerOrController(username)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Not authorized — requires owner or controller token");
         }
         return buildResumeList(username);
     }
@@ -116,7 +123,7 @@ public class ResumeController {
     public ResponseEntity<byte[]> viewResume(@PathVariable String username,
                                              @PathVariable Long id) {
         if (!isOwnerOrController(username)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         try {
             ResumeFile file = service.getResumeById(username, id);
