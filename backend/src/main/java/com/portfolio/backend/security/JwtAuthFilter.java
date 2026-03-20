@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -34,7 +36,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        // Skip JWT check for public login endpoints
         if (path.equals("/api/auth/login") || path.equals("/api/master-admin/login")) {
             filterChain.doFilter(request, response);
             return;
@@ -57,10 +58,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String username = jwtService.extractUsername(token);
         String role     = jwtService.extractRole(token);
 
-        // Controller tokens must NOT be treated as regular admin users.
-        // They carry role=CONTROLLER — skip loading from UserDetailsService
-        // so they don't accidentally pass ROLE_ADMIN checks on portfolio endpoints.
+        // ── CONTROLLER token: set Authentication with ROLE_CONTROLLER
+        // so that isOwnerOrController() checks work on resume/view endpoints.
         if ("CONTROLLER".equals(role)) {
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_CONTROLLER"))
+                        );
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
             filterChain.doFilter(request, response);
             return;
         }

@@ -123,7 +123,10 @@ const [langModal, setLangModal] = useState(null);// holds project object
       apiFetch(`/u/${username}/portfolio/languages`)
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .catch(() => []),
-      apiFetch(`/master-admin/users/${username}/resumes`).then(r => r.ok ? r.json() : Promise.reject()).catch(() => []),
+      apiFetch(`/master-admin/users/${username}/resumes`)
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(d => Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []))
+  .catch(() => []),
     ]).then(results => {
       const [profile, skills, projects, achievements, socials, education, experience, languages, resumes] = results;
       setData({
@@ -171,10 +174,7 @@ const [langModal, setLangModal] = useState(null);// holds project object
   const allSkills = ["frontend", "backend", "database", "tools"].flatMap(cat =>
     (skillsRaw[cat] || "").split(",").filter(Boolean).map(s => ({ cat, name: s.trim() }))
   );
-  const resumeList = Array.isArray(data.resumes?.data)    ? data.resumes.data
-                   : Array.isArray(data.resumes?.content) ? data.resumes.content
-                   : Array.isArray(data.resumes)           ? data.resumes
-                   : [];
+  const resumeList = Array.isArray(data.resumes) ? data.resumes : [];
 
   return (
     <div className={`cd-panel-overlay${dark ? "" : " cd-light"}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -631,11 +631,20 @@ const [langModal, setLangModal] = useState(null);// holds project object
                   {resumeList.length === 0 ? (
                     <div className="cd-empty">No resumes uploaded yet.</div>
                   ) : resumeList.map((r, i) => (
-                    <div className="cd-item-card" key={r.id || i} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <div key={r.id || i} style={{
+                      display: "flex", flexDirection: "row", alignItems: "center", gap: 12,
+                      padding: "12px 14px", borderRadius: 12, marginBottom: 8,
+                      background: dark ? "rgba(99,102,241,0.06)" : "rgba(99,102,241,0.04)",
+                      border: `1px solid ${r.primary ? "rgba(16,185,129,0.3)" : "rgba(99,102,241,0.15)"}`,
+                    }}>
                       <div style={{ color: "var(--cd-text-muted)", flexShrink: 0 }}>{Icon.pdf}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="cd-item-title" style={{ fontSize: 13 }}>{r.fileName || "Resume.pdf"}</div>
-                        <div className="cd-item-sub">{r.uploadedAt ? formatDate(r.uploadedAt) : ""}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--cd-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.fileName || "Resume.pdf"}
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.55, marginTop: 2 }}>
+                          {r.uploadedAt ? formatDate(r.uploadedAt) : ""}
+                        </div>
                       </div>
                       {r.primary && (
                         <span style={{
@@ -650,16 +659,29 @@ const [langModal, setLangModal] = useState(null);// holds project object
                         </span>
                       )}
                       {r.id && (
-                        <a
-                          href={`${API_BASE}/u/${username}/resume/view/${r.id}?t=${Date.now()}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
                           className="cd-pdf-action-btn"
-                          title="Preview"
-                          style={{ textDecoration: "none" }}
+                          title="Preview Resume"
+                          style={{ cursor: "pointer", flexShrink: 0 }}
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem("controller_token");
+                              const res = await fetch(
+                                `${API_BASE}/u/${(username || "").toLowerCase()}/resume/view/${r.id}`,
+                                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+                              );
+                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, "_blank", "noopener,noreferrer");
+                              setTimeout(() => URL.revokeObjectURL(url), 60000);
+                            } catch {
+                              alert("Could not load resume preview.");
+                            }
+                          }}
                         >
                           {Icon.eye}
-                        </a>
+                        </button>
                       )}
                     </div>
                   ))}

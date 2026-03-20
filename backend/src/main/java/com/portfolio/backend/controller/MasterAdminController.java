@@ -122,8 +122,9 @@ public class MasterAdminController {
         }
 
         try {
+            String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
             List<ResumeFile> resumes = resumeFileRepository
-                    .findAllByOwnerUsernameOrderByUploadedAtDesc(username);
+                    .findAllByOwnerUsernameOrderByUploadedAtDesc(normalizedUsername);
 
             List<Map<String, Object>> result = resumes.stream().map(r -> {
                 Map<String, Object> dto = new LinkedHashMap<>();
