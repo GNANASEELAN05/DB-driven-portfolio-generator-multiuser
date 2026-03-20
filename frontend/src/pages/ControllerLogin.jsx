@@ -1,24 +1,18 @@
+// src/pages/ControllerLogin.jsx
+// FILE LOCATION: src/pages/ControllerLogin.jsx
 import React, { useState } from "react";
-import { Box, Button, Paper, Stack, TextField, Typography, Alert, CircularProgress } from "@mui/material";
-import { MdShield, MdLogin, MdArrowBack } from "react-icons/md";
-import { RiShieldKeyholeFill } from "react-icons/ri";
+import "./ControllerLogin.css";
 
-// ─── Backend API base URL ─────────────────────────────────────
-// Uses VITE_API_URL from .env if available, falls back to Render URL
 const API_BASE =
   import.meta.env.VITE_API_URL ||
   "https://db-driven-portfolio-generator-multiuser-pq34.onrender.com/api";
 
-// ─── API call ────────────────────────────────────────────────
 async function controllerLogin(username, password) {
-  const res = await fetch(
-    `${API_BASE}/master-admin/login`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    }
-  );
+  const res = await fetch(`${API_BASE}/master-admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
   if (!res.ok) throw new Error("Invalid credentials");
   return res.json();
 }
@@ -28,7 +22,6 @@ export default function ControllerLogin() {
     document.title = "Controller Portal";
   }, []);
 
-  // If already logged in as controller, redirect
   React.useEffect(() => {
     if (localStorage.getItem("controller_token")) {
       window.location.replace("/controller/dashboard");
@@ -39,6 +32,7 @@ export default function ControllerLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [showPass, setShowPass] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -58,250 +52,139 @@ export default function ControllerLogin() {
   };
 
   return (
-    <Box
-      sx={{
-        height: "100vh",
-        width: "100vw",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "radial-gradient(ellipse at 20% 50%, #0a0f1e 0%, #000308 60%), linear-gradient(135deg,#000308,#050d1a)",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      {/* Background grid lines */}
-      <Box
-        sx={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(255,215,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,215,0,0.03) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          pointerEvents: "none",
-        }}
-      />
+    <div className="cl-root">
+      {/* Animated background */}
+      <div className="cl-bg">
+        <div className="cl-grid" />
+        <div className="cl-orb cl-orb-1" />
+        <div className="cl-orb cl-orb-2" />
+        <div className="cl-orb cl-orb-3" />
+        <div className="cl-scan-line" />
+      </div>
 
-      {/* Glow orb */}
-      <Box
-        sx={{
-          position: "absolute",
-          width: 500,
-          height: 500,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,165,0,0.08) 0%, transparent 70%)",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%,-50%)",
-          pointerEvents: "none",
-        }}
-      />
+      {/* Corner decorations */}
+      <div className="cl-corner cl-corner-tl" />
+      <div className="cl-corner cl-corner-tr" />
+      <div className="cl-corner cl-corner-bl" />
+      <div className="cl-corner cl-corner-br" />
 
-      <Box sx={{ width: "100%", maxWidth: 440, px: 2, zIndex: 1 }}>
-        {/* Back button */}
-        <Button
-          startIcon={<MdArrowBack />}
-          onClick={() => window.history.back()}
-          sx={{
-            color: "rgba(255,165,0,0.7)",
-            fontWeight: 700,
-            mb: 2,
-            "&:hover": { color: "#ffa500" },
-          }}
-        >
-          Back to Admin Login
-        </Button>
+      {/* Back */}
+      <button className="cl-back" onClick={() => window.history.back()}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M19 12H5M5 12l7-7M5 12l7 7" />
+        </svg>
+        Back to Admin Login
+      </button>
 
-        <Paper
-          elevation={0}
-          sx={{
-            width: "100%",
-            p: { xs: 3, sm: 5 },
-            borderRadius: 4,
-            backdropFilter: "blur(30px)",
-            background: "rgba(255,165,0,0.04)",
-            border: "1px solid rgba(255,165,0,0.2)",
-            boxShadow: "0 0 60px rgba(255,140,0,0.08), 0 20px 60px rgba(0,0,0,0.8)",
-          }}
-        >
-          <Stack spacing={3}>
-            <Stack alignItems="center" spacing={1.5}>
-              {/* Shield icon with gold ring */}
-              <Box sx={{ position: "relative", display: "inline-flex" }}>
-                <Box
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg,#b8860b,#ffd700,#ff8c00)",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "#000",
-                    fontSize: 36,
-                    boxShadow: "0 0 30px rgba(255,165,0,0.4)",
-                  }}
-                >
-                  <RiShieldKeyholeFill />
-                </Box>
-                {/* Pulse ring */}
-                <Box
-                  sx={{
-                    position: "absolute",
-                    inset: -6,
-                    borderRadius: "50%",
-                    border: "2px solid rgba(255,165,0,0.3)",
-                    animation: "ctrlPulse 2s ease-in-out infinite",
-                    "@keyframes ctrlPulse": {
-                      "0%,100%": { transform: "scale(1)", opacity: 0.3 },
-                      "50%": { transform: "scale(1.1)", opacity: 0.7 },
-                    },
-                  }}
-                />
-              </Box>
+      <div className="cl-card">
+        {/* Top accent bar */}
+        <div className="cl-card-bar" />
 
-              <Typography
-                sx={{
-                  fontWeight: 900,
-                  fontSize: 26,
-                  letterSpacing: 3,
-                  textTransform: "uppercase",
-                  background: "linear-gradient(90deg,#b8860b,#ffd700,#ff8c00)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  fontFamily: "'Courier New', monospace",
-                }}
+        {/* Icon */}
+        <div className="cl-icon-wrap">
+          <div className="cl-icon-ring cl-icon-ring-1" />
+          <div className="cl-icon-ring cl-icon-ring-2" />
+          <div className="cl-icon-core">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div className="cl-title">Controller Portal</div>
+        <div className="cl-subtitle">⚡ Restricted System Access · Master Level</div>
+
+        {/* Warning */}
+        <div className="cl-warning">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Unauthorized access is prohibited and will be logged.
+        </div>
+
+        {err && (
+          <div className="cl-error">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            {err}
+          </div>
+        )}
+
+        <form onSubmit={onSubmit} className="cl-form">
+          <div className="cl-field">
+            <label className="cl-label">Controller Username</label>
+            <div className="cl-input-wrap">
+              <svg className="cl-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input
+                type="text"
+                className="cl-input"
+                placeholder="Enter controller username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="off"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="cl-field">
+            <label className="cl-label">Controller Password</label>
+            <div className="cl-input-wrap">
+              <svg className="cl-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+              </svg>
+              <input
+                type={showPass ? "text" : "password"}
+                className="cl-input"
+                placeholder="Enter controller password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="cl-eye-btn"
+                onClick={() => setShowPass((p) => !p)}
+                tabIndex={-1}
               >
-                Controller Portal
-              </Typography>
+                {showPass ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
 
-              <Typography
-                sx={{
-                  color: "rgba(255,165,0,0.5)",
-                  fontSize: 12,
-                  letterSpacing: 2,
-                  textTransform: "uppercase",
-                  fontFamily: "'Courier New', monospace",
-                }}
-              >
-                ⚠ Restricted System Access ⚠
-              </Typography>
-            </Stack>
-
-            {/* Warning banner */}
-            <Box
-              sx={{
-                border: "1px solid rgba(255,165,0,0.25)",
-                borderRadius: 2,
-                p: 1.5,
-                background: "rgba(255,140,0,0.05)",
-                textAlign: "center",
-              }}
-            >
-              <Typography sx={{ color: "rgba(255,165,0,0.7)", fontSize: 12, letterSpacing: 1 }}>
-                Unauthorized access is strictly prohibited and logged.
-              </Typography>
-            </Box>
-
-            {err && (
-              <Alert
-                severity="error"
-                sx={{
-                  borderRadius: 2,
-                  background: "rgba(255,0,0,0.1)",
-                  border: "1px solid rgba(255,0,0,0.3)",
-                  color: "#ff6b6b",
-                  "& .MuiAlert-icon": { color: "#ff6b6b" },
-                }}
-              >
-                {err}
-              </Alert>
+          <button type="submit" className="cl-submit" disabled={loading}>
+            {loading ? (
+              <>
+                <div className="cl-spinner" />
+                Authenticating…
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+                Authorize Access
+              </>
             )}
+          </button>
+        </form>
 
-            <Box component="form" onSubmit={onSubmit}>
-              <Stack spacing={2}>
-                <TextField
-                  label="Controller Username"
-                  fullWidth
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="off"
-                  sx={inputStyle}
-                />
-
-                <TextField
-                  label="Controller Password"
-                  type="password"
-                  fullWidth
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  sx={inputStyle}
-                />
-
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={loading ? <CircularProgress size={18} sx={{ color: "#000" }} /> : <MdLogin />}
-                  disabled={loading}
-                  sx={{
-                    mt: 1,
-                    py: 1.5,
-                    fontWeight: 900,
-                    borderRadius: 2,
-                    fontSize: 15,
-                    letterSpacing: 1.5,
-                    textTransform: "uppercase",
-                    fontFamily: "'Courier New', monospace",
-                    background: "linear-gradient(135deg,#b8860b,#ffd700,#ff8c00)",
-                    color: "#000",
-                    boxShadow: "0 8px 25px rgba(255,165,0,0.3)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg,#ffd700,#ff8c00)",
-                      boxShadow: "0 8px 35px rgba(255,165,0,0.5)",
-                    },
-                    "&:disabled": { opacity: 0.6 },
-                  }}
-                >
-                  {loading ? "Authenticating..." : "Authorize Access"}
-                </Button>
-              </Stack>
-            </Box>
-          </Stack>
-        </Paper>
-
-        <Typography
-          sx={{
-            textAlign: "center",
-            mt: 2,
-            fontSize: 11,
-            color: "rgba(255,165,0,0.3)",
-            letterSpacing: 2,
-            textTransform: "uppercase",
-            fontFamily: "'Courier New', monospace",
-          }}
-        >
-          Platform Controller • Master Access
-        </Typography>
-      </Box>
-    </Box>
+        <div className="cl-footer">Platform Controller · Master Access · v2.0</div>
+      </div>
+    </div>
   );
 }
-
-const inputStyle = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: 2,
-    background: "rgba(255,165,0,0.05)",
-    color: "#ffd700",
-    fontFamily: "'Courier New', monospace",
-  },
-  "& .MuiInputLabel-root": { color: "rgba(255,165,0,0.6)" },
-  "& .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgba(255,165,0,0.2)",
-  },
-  "&:hover .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgba(255,165,0,0.5)",
-  },
-  "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#ffd700",
-  },
-};

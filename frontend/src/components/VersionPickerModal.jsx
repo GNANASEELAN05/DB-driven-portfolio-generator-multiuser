@@ -4,9 +4,10 @@
 // Shows three plan cards: Free · Premium 1 (₹50) · Premium 2 (₹100)
 // Handles Razorpay payment inline and unlocks the version on success.
 // Includes ⚡ Skip (Test) button for dev/testing — bypasses Razorpay.
+// Preview PDFs are fetched dynamically from the Controller backend.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog, DialogContent, Box, Typography, Button,
   Chip, CircularProgress, Alert, IconButton, Tooltip,
@@ -23,13 +24,6 @@ const BACKEND_BASE = (
 ).replace(/\/api\/?$/, "");
 
 const API_BASE = `${BACKEND_BASE}/api`;
-
-// ── PDF preview paths ────────────────────────────────────────────────────────
-// Put premium_preview1.pdf and premium_preview2.pdf in:
-//   backend/src/main/resources/static/
-// ─────────────────────────────────────────────────────────────────────────────
-const PREMIUM1_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview1.pdf`;
-const PREMIUM2_PREVIEW_PDF = `${BACKEND_BASE}/premium_preview2.pdf`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -54,6 +48,40 @@ export default function VersionPickerModal({
   const [payErr,   setPayErr]   = useState("");
   const [payOk,    setPayOk]    = useState("");
   const [pdfUrl,   setPdfUrl]   = useState(null); // null = closed
+
+  // ── Dynamic PDF preview URLs fetched from the Controller backend ───────────
+  const [previewPdfUrls, setPreviewPdfUrls] = useState({
+    premium1: null,
+    premium2: null,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+
+    const fetchPreviews = async () => {
+      try {
+        const [r1, r2] = await Promise.allSettled([
+          fetch(`${API_BASE}/master-admin/preview-pdfs/latest/premium1`)
+            .then(r => r.ok ? r.json() : null),
+          fetch(`${API_BASE}/master-admin/preview-pdfs/latest/premium2`)
+            .then(r => r.ok ? r.json() : null),
+        ]);
+
+        setPreviewPdfUrls({
+          premium1: r1.status === "fulfilled" && r1.value?.id
+            ? `${API_BASE}/master-admin/preview-pdfs/${r1.value.id}/view`
+            : null,
+          premium2: r2.status === "fulfilled" && r2.value?.id
+            ? `${API_BASE}/master-admin/preview-pdfs/${r2.value.id}/view`
+            : null,
+        });
+      } catch {
+        // Network error — leave both null, eye icons simply won't show
+      }
+    };
+
+    fetchPreviews();
+  }, [open]);
 
   // ── Razorpay payment ───────────────────────────────────────────────────────
   const handlePay = (version) => {
@@ -101,8 +129,8 @@ export default function VersionPickerModal({
 
       const newStatus = await res.json();
       setPayOk(`✅ Test skip — Premium ${version} unlocked.`);
-      onPremiumUnlocked(newStatus);    // update hasPremium1/hasPremium2 in parent
-      if (onSkip) onSkip(version);     // navigate / generate in parent
+      onPremiumUnlocked(newStatus);
+      if (onSkip) onSkip(version);
     } catch (e) {
       setPayErr("Skip failed: " + e.message);
     } finally {
@@ -138,7 +166,7 @@ export default function VersionPickerModal({
       locked: !hasPremium1,
       paid: hasPremium1,
       onGenerate: onGeneratePremium1,
-      previewPdf: PREMIUM1_PREVIEW_PDF,
+      previewPdf: previewPdfUrls.premium1,
     },
     {
       key: "premium2",
@@ -155,11 +183,20 @@ export default function VersionPickerModal({
       locked: !hasPremium2,
       paid: hasPremium2,
       onGenerate: onGeneratePremium2,
-      previewPdf: PREMIUM2_PREVIEW_PDF,
+      previewPdf: previewPdfUrls.premium2,
     },
   ];
 
   const busy = paying !== null || skipping !== null;
+
+  // ── PDF iframe: mobile uses Google Docs viewer, desktop uses inline ────────
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  const getPdfSrc = (url) => {
+    if (!url) return "";
+    return isMobile
+      ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+      : `${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+  };
 
   return (
     <>
@@ -171,11 +208,13 @@ export default function VersionPickerModal({
           </IconButton>
         </Box>
         <DialogContent sx={{ p: 0, height: "80vh" }}>
-          <iframe
-            src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            title="Portfolio Preview"
-          />
+          {pdfUrl && (
+            <iframe
+              src={getPdfSrc(pdfUrl)}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              title="Portfolio Preview"
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -224,9 +263,7 @@ export default function VersionPickerModal({
                 key={plan.key}
                 sx={{
                   flex: 1,
-                  border: `2px solid ${
-                    plan.paid ? plan.color : "rgba(0,0,0,0.12)"
-                  }`,
+                  border: `2px solid ${plan.paid ? plan.color : "rgba(0,0,0,0.12)"}`,
                   borderRadius: 3,
                   p: 2.5,
                   display: "flex",
@@ -293,17 +330,26 @@ export default function VersionPickerModal({
                   ))}
                 </Box>
 
-                {/* ── Eye icon — preview PDF ── */}
-                {plan.previewPdf && (
-                  <Tooltip title="Preview layout PDF">
-                    <IconButton
-                      size="small"
-                      sx={{ alignSelf: "flex-start", color: plan.color }}
-                      onClick={() => setPdfUrl(plan.previewPdf)}
+                {/* ── Eye icon — preview PDF (only shown if PDF uploaded in Controller) ── */}
+                {plan.key !== "free" && (
+                  plan.previewPdf ? (
+                    <Tooltip title="Preview layout PDF">
+                      <IconButton
+                        size="small"
+                        sx={{ alignSelf: "flex-start", color: plan.color }}
+                        onClick={() => setPdfUrl(plan.previewPdf)}
+                      >
+                        <MdVisibility />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.4, fontSize: "0.7rem", alignSelf: "flex-start" }}
                     >
-                      <MdVisibility />
-                    </IconButton>
-                  </Tooltip>
+                      No preview available
+                    </Typography>
+                  )
                 )}
 
                 {/* ── Action buttons ── */}
@@ -324,14 +370,7 @@ export default function VersionPickerModal({
                   </Button>
                 ) : (
                   /* Locked → Pay & Unlock  +  ⚡ Skip (Test) */
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 1,
-                      mt: 1,
-                    }}
-                  >
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
                     {/* Pay & Unlock */}
                     <Button
                       variant="outlined"

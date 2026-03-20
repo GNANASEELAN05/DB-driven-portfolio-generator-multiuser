@@ -11,7 +11,7 @@
 //   PREMIUM2 ADMIN   /:username/adminpanel/premium2 → AdminDashboardPremium2.jsx
 //
 //   CONTROLLER       /controller/login       → ControllerLogin.jsx
-//   CONTROLLER DASH  /controller/dashboard   → ControllerDashboard.jsx (future)
+//   CONTROLLER DASH  /controller/dashboard   → ControllerDashboard.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -27,7 +27,8 @@ import AdminDashboardPremium1 from "./pages/AdminDashboardPremium1";
 import AdminDashboardPremium2 from "./pages/AdminDashboardPremium2";
 import HomePremium1 from "./pages/HomePremium1";
 import HomePremium2 from "./pages/HomePremium2";
-import ControllerLogin from "./pages/ControllerLogin";   // ← NEW
+import ControllerLogin from "./pages/ControllerLogin";
+import ControllerDashboard from "./pages/ControllerDashboard";   // ← NEW
 
 const makeTheme = (mode, flavor = "viewer") => {
   const viewerPrimary   = "#7C3AED";
@@ -129,6 +130,14 @@ export default function App() {
     return children;
   };
 
+  // ── Protect controller dashboard ──────────────────────────────────────────
+  const RequireControllerAuth = ({ children }) => {
+    if (!localStorage.getItem("controller_token")) {
+      return <Navigate to="/controller/login" replace />;
+    }
+    return children;
+  };
+
   // ── Protect admin routes ──────────────────────────────────────────────────
   const RequireAuth = ({ children, dashboardType = "free" }) => {
     const { username } = useParams();
@@ -198,18 +207,10 @@ export default function App() {
             <ThemeProvider theme={adminTheme}><CssBaseline /><ControllerLogin /></ThemeProvider>
           </IfControllerAuthedGoDashboard>
         } />
-        {/* Placeholder — replace with real ControllerDashboard later */}
         <Route path="/controller/dashboard" element={
-          <ThemeProvider theme={adminTheme}><CssBaseline />
-            <div style={{color:"#ffd700",padding:40,fontFamily:"monospace",background:"#000308",minHeight:"100vh"}}>
-              <h1>🛡 Controller Dashboard</h1>
-              <p>Welcome, {localStorage.getItem("controller_name") || "Controller"}</p>
-              <button onClick={()=>{localStorage.removeItem("controller_token");localStorage.removeItem("controller_name");window.location.replace("/controller/login")}}
-                style={{marginTop:20,padding:"10px 20px",background:"#ffd700",color:"#000",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
-                Logout
-              </button>
-            </div>
-          </ThemeProvider>
+          <RequireControllerAuth>
+            <ControllerDashboard />
+          </RequireControllerAuth>
         } />
 
         {/* ── Public viewers ── */}

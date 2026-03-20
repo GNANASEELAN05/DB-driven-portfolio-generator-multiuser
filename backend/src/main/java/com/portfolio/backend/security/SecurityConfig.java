@@ -50,6 +50,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/master-admin/login").permitAll()
                 .requestMatchers("/api/master-admin/verify").permitAll()
 
+                // ── PUBLIC: latest PDF for VersionPickerModal (no token needed) ──
+                .requestMatchers(HttpMethod.GET, "/api/master-admin/preview-pdfs/latest/**").permitAll()
+
+                // ── PUBLIC: PDF view for iframe (no token needed) ──────────
+                .requestMatchers(HttpMethod.GET, "/api/master-admin/preview-pdfs/*/view").permitAll()
+
                 // ── payment (JWT required, enforced inside controller) ──────
                 .requestMatchers("/api/payment/**").authenticated()
 
@@ -66,8 +72,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/projects/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/projects/**").hasRole("ADMIN")
 
-                // ── ADMIN: portfolio (profile, skills, socials, achievements,
-                //           languages, education, experience, certificates) ──
+                // ── ADMIN: portfolio ───────────────────────────────────────
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/portfolio/**").hasRole("ADMIN")
@@ -77,7 +82,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/resume/**").hasRole("ADMIN")
 
-                // ── ADMIN: profile-image (upload / delete / set-primary) ───
+                // ── ADMIN: profile-image ───────────────────────────────────
                 .requestMatchers(HttpMethod.POST,   "/api/profile-image/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/profile-image/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/profile-image/**").hasRole("ADMIN")
@@ -97,8 +102,7 @@ public class SecurityConfig {
             "http://localhost:5173",
             "http://localhost:5174",
             "http://127.0.0.1:5173",
-            "https://portfolio-generator-by-gnanaseelan.vercel.app",
-            "https://gnanaseelan-v-portfolio.vercel.app"
+            "https://portfolio-generator-by-gnanaseelan.vercel.app"
         ));
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
