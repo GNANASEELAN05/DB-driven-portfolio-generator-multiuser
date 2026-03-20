@@ -746,8 +746,14 @@ function PremiumBlockDialog({ open, tier, onClose }) {
 export default function AdminDashboard(props) {
   const navigate = useNavigate();  // ← already exists, leave it
   const [versionPickerOpen, setVersionPickerOpen] = useState(false);
-  const [hasPremium1, setHasPremium1]             = useState(false);
-  const [hasPremium2, setHasPremium2]             = useState(false);
+  const [hasPremium1, setHasPremium1] = useState(() => {
+    const authUser = (localStorage.getItem("auth_user") || "").toLowerCase();
+    return localStorage.getItem(`premium1_${authUser}`) === "true";
+  });
+  const [hasPremium2, setHasPremium2] = useState(() => {
+    const authUser = (localStorage.getItem("auth_user") || "").toLowerCase();
+    return localStorage.getItem(`premium2_${authUser}`) === "true";
+  });
   const [navMenuAnchor, setNavMenuAnchor]         = useState(null);
   const [premiumBlockOpen, setPremiumBlockOpen]   = useState(false);
   const [premiumBlockTier, setPremiumBlockTier]   = useState("");
@@ -1089,7 +1095,7 @@ React.useEffect(() => {
   fetchPremiumStatus().then((s) => {
     setHasPremium1(s.hasPremium1);
     setHasPremium2(s.hasPremium2);
-    const authUser = localStorage.getItem("auth_user") || "";
+    const authUser = (localStorage.getItem("auth_user") || "").toLowerCase();
     if (s.hasPremium1) localStorage.setItem(`premium1_${authUser}`, "true");
     if (s.hasPremium2) localStorage.setItem(`premium2_${authUser}`, "true");
   });
@@ -3165,11 +3171,10 @@ const saveEditSkill = (i) => {
           onPremiumUnlocked={(newStatus) => {
             setHasPremium1(newStatus.hasPremium1);
             setHasPremium2(newStatus.hasPremium2);
-            const authUser = localStorage.getItem("auth_user") || "";
+            const authUser = (localStorage.getItem("auth_user") || "").toLowerCase();
             if (newStatus.hasPremium1) localStorage.setItem(`premium1_${authUser}`, "true");
             if (newStatus.hasPremium2) localStorage.setItem(`premium2_${authUser}`, "true");
-            if (newStatus.hasPremium1 && !hasPremium1) navigate(`/${username}/adminpanel/premium1`);
-            if (newStatus.hasPremium2 && !hasPremium2) navigate(`/${username}/adminpanel/premium2`);
+            // No auto-navigation — user navigates explicitly via Generate button in modal
           }}
           onGenerateFree={() => {
             setVersionPickerOpen(false);

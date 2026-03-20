@@ -99,7 +99,10 @@ export default function VersionPickerModal({
         setHasPremium2(p2);
         if (p1) localStorage.setItem(`premium1_${authUser}`, "true");
         if (p2) localStorage.setItem(`premium2_${authUser}`, "true");
-        if ((p1 || p2) && typeof onPremiumUnlocked === "function") {
+        // Only notify parent if something NEWLY became true (wasn't true in props before)
+        const newlyP1 = p1 && !hasPremium1Prop;
+        const newlyP2 = p2 && !hasPremium2Prop;
+        if ((newlyP1 || newlyP2) && typeof onPremiumUnlocked === "function") {
           onPremiumUnlocked({ hasPremium1: p1, hasPremium2: p2 });
         }
       }

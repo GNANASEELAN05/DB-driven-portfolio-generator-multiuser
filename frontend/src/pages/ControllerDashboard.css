@@ -911,3 +911,9 @@
   .cd-logo-sub { display: none; }
   .cd-stat-value { font-size: 22px; }
 }
+
+
+.cd-sidebar { isolation: auto; }
+.cd-main-wrap { isolation: auto; }
+.cd-main { overflow: visible; }
+.cd-header { isolation: auto; }

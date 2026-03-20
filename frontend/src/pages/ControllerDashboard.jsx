@@ -1505,15 +1505,14 @@ function UpiQrPage({ dark }) {
 // ════════════════════════════════════════
 // PAYMENT REQUESTS PAGE
 // ════════════════════════════════════════
-function RequestsPage({ dark }) {
+function RequestsPage({ dark, onDetailChange, onRejectChange }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [err, setErr]           = useState("");
   const [ok, setOk]             = useState("");
-  const [filter, setFilter]     = useState("ALL"); // ALL | PENDING | APPROVED | REJECTED
+  const [filter, setFilter]     = useState("ALL");
   const [search, setSearch]     = useState("");
-  const [detail, setDetail]     = useState(null);  // request object for detail modal
-  const [acting, setActing]     = useState({});     // { [id]: "approve"|"reject" }
+  const [acting, setActing]     = useState({});
 
   const fetchRequests = useCallback(async () => {
     setLoading(true); setErr("");
@@ -1535,7 +1534,7 @@ function RequestsPage({ dark }) {
       const res = await apiFetch(`/master-admin/payment-requests/${id}/approve`, { method: "PATCH" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setOk("Request approved! Premium unlocked for user.");
-      setDetail(null);
+      onDetailChange(null);
       await fetchRequests();
       // Re-fetch pending count badge
       try {
@@ -1552,17 +1551,22 @@ function RequestsPage({ dark }) {
   };
 
   const handleReject = async (id) => {
-    if (!window.confirm("Reject this payment request?")) return;
-    setActing(p => ({ ...p, [id]: "reject" }));
-    setErr(""); setOk("");
-    try {
-      const res = await apiFetch(`/master-admin/payment-requests/${id}/reject`, { method: "PATCH" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setOk("Request rejected.");
-      setDetail(null);
-      await fetchRequests();
-    } catch (e) { setErr("Reject failed: " + e.message); }
-    finally { setActing(p => ({ ...p, [id]: undefined })); }
+    const req = requests.find(r => r.id === id);
+    onRejectChange({
+      id, username: req?.username || "", version: req?.version || "",
+      onConfirm: async () => {
+        setActing(p => ({ ...p, [id]: "reject" }));
+        setErr(""); setOk("");
+        try {
+          const res = await apiFetch(`/master-admin/payment-requests/${id}/reject`, { method: "PATCH" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          setOk("Request rejected.");
+          onDetailChange(null);
+          await fetchRequests();
+        } catch (e) { setErr("Reject failed: " + e.message); }
+        finally { setActing(p => ({ ...p, [id]: undefined })); }
+      }
+    });
   };
 
   const statusColor = (s) => s === "APPROVED" ? "#10b981" : s === "REJECTED" ? "#f43f5e" : "#f59e0b";
@@ -1632,7 +1636,7 @@ function RequestsPage({ dark }) {
             )) : filtered.length === 0 ? (
               <tr><td colSpan={9} className="cd-empty-row">No requests found.</td></tr>
             ) : filtered.map((r, i) => (
-              <tr key={r.id || i} className="cd-row" onClick={() => setDetail(r)}>
+              <tr key={r.id || i} className="cd-row" onClick={() => onDetailChange(r)}>
                 <td className="cd-td-num">{i + 1}</td>
                 <td>
                   <div className="cd-user-cell">
@@ -1660,7 +1664,7 @@ function RequestsPage({ dark }) {
                 </td>
                 <td onClick={e => e.stopPropagation()}>
                   <div className="cd-actions">
-                    <button className="cd-action-btn" title="View Details" onClick={() => setDetail(r)}>{Icon.eye}</button>
+                    <button className="cd-action-btn" title="View Details" onClick={() => onDetailChange(r)}>{Icon.eye}</button>
                     {r.status === "PENDING" && <>
                       <button
                         className="cd-action-btn"
@@ -1685,75 +1689,7 @@ function RequestsPage({ dark }) {
         </table>
       </div>
 
-      {/* Detail Modal */}
-      {detail && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(5,7,20,0.85)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "cd-fade-in 0.18s ease" }}
-          onClick={e => e.target === e.currentTarget && setDetail(null)}>
-          <div style={{
-            width: "100%", maxWidth: 520, background: dark ? "#0d0f28" : "#ffffff",
-            border: "1px solid rgba(99,102,241,0.3)", borderRadius: 20, overflow: "hidden",
-            animation: "cd-modal-in 0.26s cubic-bezier(0.22,1,0.36,1)", boxShadow: "0 28px 70px rgba(0,0,0,0.45)",
-          }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid rgba(99,102,241,0.18)", background: dark ? "rgba(13,15,40,0.95)" : "rgba(245,245,255,0.95)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#a5b4fc" }}>{Icon.inbox}</span>
-                <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>Payment Request — @{detail.username}</span>
-              </div>
-              <button onClick={() => setDetail(null)} style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)", color: dark ? "rgba(165,180,252,0.7)" : "#6366f1", display: "grid", placeItems: "center", cursor: "pointer" }}>{Icon.close}</button>
-            </div>
-            {/* Body */}
-            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10, maxHeight: "70vh", overflowY: "auto" }}>
-              <div style={{
-                display: "inline-flex", alignSelf: "flex-start", padding: "3px 12px", borderRadius: 999,
-                fontSize: 12, fontWeight: 800, background: statusBg(detail.status),
-                border: `1px solid ${statusBorder(detail.status)}`, color: statusColor(detail.status),
-              }}>{detail.status}</div>
-              {[
-                ["Username",        `@${detail.username}`],
-                ["Full Name",       detail.fullName],
-                ["Phone",           detail.phone],
-                ["Transaction ID",  detail.paymentId],
-                ["Paid Via",        detail.paidVia],
-                ["Paid From Mobile",detail.paidFromMobile],
-                ["Premium Version", `Premium ${detail.version}`],
-                ["Submitted At",    detail.createdAt ? new Date(detail.createdAt).toLocaleString("en-IN") : "—"],
-                ...(detail.updatedAt ? [["Last Updated", new Date(detail.updatedAt).toLocaleString("en-IN")]] : []),
-              ].map(([label, val]) => (
-                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "9px 12px", borderRadius: 9, background: dark ? "rgba(99,102,241,0.04)" : "rgba(99,102,241,0.03)", border: "1px solid rgba(99,102,241,0.1)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: dark ? "rgba(165,180,252,0.5)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? "rgba(226,232,240,0.88)" : "#334155", fontFamily: label === "Transaction ID" ? "monospace" : "inherit" }}>{val}</span>
-                </div>
-              ))}
-              {/* Accept / Reject buttons in modal */}
-              {detail.status === "PENDING" && (
-                <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                  <button
-                    style={{ flex: 1, padding: "9px 0", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => handleApprove(detail.id)}
-                    disabled={!!acting[detail.id]}
-                  >{acting[detail.id] === "approve" ? <div className="cd-loader-sm" /> : Icon.check2} Approve &amp; Unlock</button>
-                  <button
-                    style={{ flex: 1, padding: "9px 0", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => handleReject(detail.id)}
-                    disabled={!!acting[detail.id]}
-                  >{acting[detail.id] === "reject" ? <div className="cd-loader-sm" /> : Icon.reject} Reject</button>
-                </div>
-              )}
-              {detail.status === "REJECTED" && (
-                <div style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", color: "#f43f5e", fontSize: 13, fontWeight: 600 }}>
-                  ❌ This request was rejected. The user will see "Rejected — Try Again" in their portal.
-                </div>
-              )}
-              {detail.status === "APPROVED" && (
-                <div style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", fontSize: 13, fontWeight: 600 }}>
-                  ✅ Approved — Premium {detail.version} has been unlocked for this user.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -1786,6 +1722,8 @@ export default function ControllerDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [requestDetail, setRequestDetail] = useState(null);
+  const [rejectDetail, setRejectDetail] = useState(null);
 
   useEffect(() => {
     document.title = "Controller Dashboard";
@@ -2103,13 +2041,126 @@ const pageLabel = { dashboard: "Overview", users: "Registered Users", pdfs: "Pre
           {activePage === "upi" && <UpiQrPage dark={dark} />}
 
           {/* ── PAYMENT REQUESTS PAGE ── */}
-          {activePage === "requests" && <RequestsPage dark={dark} />}
+          {activePage === "requests" && <RequestsPage dark={dark} onDetailChange={setRequestDetail} onRejectChange={setRejectDetail} />}
         </main>
       </div>
 
       {/* User detail panel */}
       {selectedUser && (
         <UserDetailPanel user={selectedUser} onClose={() => setSelectedUser(null)} dark={dark} />
+      )}
+
+      {/* Payment Request Detail Modal — rendered at root level like UserDetailPanel */}
+      {requestDetail && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 500,
+            background: "rgba(5,7,20,0.82)",
+            backdropFilter: "blur(10px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24,
+            animation: "cd-fade-in 0.18s ease",
+          }}
+          onClick={(e) => e.target === e.currentTarget && setRequestDetail(null)}
+        >
+          <div style={{
+            width: "100%", maxWidth: 520,
+            background: dark ? "#0d0f28" : "#ffffff",
+            border: "1px solid rgba(99,102,241,0.3)",
+            borderRadius: 20,
+            overflow: "hidden",
+            maxHeight: "80vh", display: "flex", flexDirection: "column",
+            animation: "cd-modal-in 0.26s cubic-bezier(0.22,1,0.36,1)",
+            boxShadow: "0 28px 70px rgba(0,0,0,0.45)",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 18px",
+              borderBottom: "1px solid rgba(99,102,241,0.18)",
+              background: dark ? "rgba(13,15,40,0.95)" : "rgba(245,245,255,0.95)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#a5b4fc" }}>{Icon.inbox}</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>Payment Request — @{requestDetail.username}</span>
+              </div>
+              <button onClick={() => setRequestDetail(null)} style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)", color: dark ? "rgba(165,180,252,0.7)" : "#6366f1", display: "grid", placeItems: "center", cursor: "pointer" }}>{Icon.close}</button>
+            </div>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1 }}>
+              <div style={{
+                display: "inline-flex", alignSelf: "flex-start", padding: "3px 12px", borderRadius: 999,
+                fontSize: 12, fontWeight: 800,
+                background: requestDetail.status === "APPROVED" ? "rgba(16,185,129,0.12)" : requestDetail.status === "REJECTED" ? "rgba(244,63,94,0.10)" : "rgba(245,158,11,0.12)",
+                border: `1px solid ${requestDetail.status === "APPROVED" ? "rgba(16,185,129,0.3)" : requestDetail.status === "REJECTED" ? "rgba(244,63,94,0.25)" : "rgba(245,158,11,0.3)"}`,
+                color: requestDetail.status === "APPROVED" ? "#10b981" : requestDetail.status === "REJECTED" ? "#f43f5e" : "#f59e0b",
+              }}>{requestDetail.status}</div>
+              {[
+                ["Username", `@${requestDetail.username}`],
+                ["Full Name", requestDetail.fullName],
+                ["Phone", requestDetail.phone],
+                ["Transaction ID", requestDetail.paymentId],
+                ["Paid Via", requestDetail.paidVia],
+                ["Paid From Mobile", requestDetail.paidFromMobile],
+                ["Premium Version", `Premium ${requestDetail.version}`],
+                ["Submitted At", requestDetail.createdAt ? new Date(requestDetail.createdAt).toLocaleString("en-IN") : "—"],
+                ...(requestDetail.updatedAt ? [["Last Updated", new Date(requestDetail.updatedAt).toLocaleString("en-IN")]] : []),
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "9px 12px", borderRadius: 9, background: dark ? "rgba(99,102,241,0.04)" : "rgba(99,102,241,0.03)", border: "1px solid rgba(99,102,241,0.1)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: dark ? "rgba(165,180,252,0.5)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? "rgba(226,232,240,0.88)" : "#334155", fontFamily: label === "Transaction ID" ? "monospace" : "inherit" }}>{val}</span>
+                </div>
+              ))}
+              {requestDetail.status === "APPROVED" && (
+                <div style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", fontSize: 13, fontWeight: 600 }}>
+                  ✅ Approved — Premium {requestDetail.version} has been unlocked for this user.
+                </div>
+              )}
+              {requestDetail.status === "REJECTED" && (
+                <div style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", color: "#f43f5e", fontSize: 13, fontWeight: 600 }}>
+                  ❌ This request was rejected.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirm Modal — also at root level */}
+      {rejectDetail && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 500,
+          background: "rgba(5,7,20,0.82)", backdropFilter: "blur(10px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 24, animation: "cd-fade-in 0.18s ease",
+        }}
+          onClick={(e) => e.target === e.currentTarget && setRejectDetail(null)}
+        >
+          <div style={{
+            width: "100%", maxWidth: 420,
+            background: dark ? "#0d0f28" : "#ffffff",
+            border: "1px solid rgba(244,63,94,0.3)",
+            borderRadius: 20, overflow: "hidden",
+            animation: "cd-modal-in 0.26s cubic-bezier(0.22,1,0.36,1)",
+            boxShadow: "0 28px 70px rgba(0,0,0,0.45)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid rgba(244,63,94,0.18)", background: dark ? "rgba(13,15,40,0.95)" : "rgba(255,245,245,0.95)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#f43f5e" }}>{Icon.reject}</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>Reject Payment Request</span>
+              </div>
+              <button onClick={() => setRejectDetail(null)} style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.18)", color: dark ? "rgba(253,164,175,0.7)" : "#e11d48", display: "grid", placeItems: "center", cursor: "pointer" }}>{Icon.close}</button>
+            </div>
+            <div style={{ padding: "22px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: dark ? "rgba(244,63,94,0.06)" : "rgba(244,63,94,0.04)", border: "1px solid rgba(244,63,94,0.15)", fontSize: 13.5, lineHeight: 1.7, color: dark ? "rgba(226,232,240,0.88)" : "#334155" }}>
+                Are you sure you want to reject the <strong>Premium {rejectDetail.version}</strong> payment request from <strong>@{rejectDetail.username}</strong>?<br />
+                <span style={{ opacity: 0.6, fontSize: 12 }}>This action cannot be undone.</span>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setRejectDetail(null)} style={{ flex: 1, padding: "9px 0", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}`, color: dark ? "rgba(226,232,240,0.7)" : "#64748b" }}>Cancel</button>
+                <button onClick={() => { rejectDetail.onConfirm(); setRejectDetail(null); }} style={{ flex: 1, padding: "9px 0", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{Icon.reject} Yes, Reject</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
