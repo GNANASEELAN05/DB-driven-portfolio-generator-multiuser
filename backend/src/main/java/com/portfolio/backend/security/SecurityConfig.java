@@ -59,6 +59,10 @@ public class SecurityConfig {
                 // ── CONTROLLER: user resume list ───────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/master-admin/users/*/resumes").permitAll()
 
+                // ── CONTROLLER: delete user (permitAll so Bearer token
+                //    reaches the method-level auth header check) ────────────
+                .requestMatchers(HttpMethod.DELETE, "/api/master-admin/users/**").permitAll()
+
                 // ── PUBLIC: UPI QR image view ──────────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/upi-qr/*/view").permitAll()
 

@@ -8,4 +8,5 @@ public interface PaymentRequestRepository extends JpaRepository<PaymentRequest, 
     List<PaymentRequest> findAllByOrderByCreatedAtDesc();
     List<PaymentRequest> findByUsernameOrderByCreatedAtDesc(String username);
     List<PaymentRequest> findByStatusOrderByCreatedAtDesc(String status);
+    void deleteByUsername(String username);
 }

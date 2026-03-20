@@ -1928,6 +1928,19 @@ export default function ControllerDashboard() {
     window.location.replace("/controller/login");
   };
 
+  const handleDeleteUser = async (u, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete user @${u.username}?\n\nThis will permanently delete the user and ALL their data (portfolio, projects, resumes, achievements, etc.) from the database. This cannot be undone.`)) return;
+    try {
+      const res = await apiFetch(`/master-admin/users/${u.username}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setUsers(prev => prev.filter(x => x.username !== u.username));
+      if (selectedUser?.username === u.username) setSelectedUser(null);
+    } catch (e) {
+      alert("Delete failed: " + e.message);
+    }
+  };
+
   const filtered = users.filter(u =>
     !search ||
     (u.username || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -2166,7 +2179,12 @@ const pageLabel = { dashboard: "Overview", users: "Registered Users", pdfs: "Pre
                             <div className="cd-actions">
                               <button className="cd-action-btn" title="View Details" onClick={() => setSelectedUser(u)}>{Icon.eye}</button>
                               <a className="cd-action-btn" href={`/${u.username}`} target="_blank" rel="noopener noreferrer" title="View Portfolio">{Icon.globe}</a>
-                              <a className="cd-action-btn" href={`/${u.username}/adminpanel`} target="_blank" rel="noopener noreferrer" title="Open Admin">{Icon.shield}</a>
+                              <button
+                                className="cd-action-btn"
+                                title="Delete User"
+                                style={{ color: "#f43f5e", border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.08)" }}
+                                onClick={(e) => handleDeleteUser(u, e)}
+                              >{Icon.trash}</button>
                             </div>
                           </td>
                         </tr>

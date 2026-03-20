@@ -9,4 +9,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findAllByOwnerUsernameOrderByUpdatedAtDesc(String ownerUsername);
 
     List<Project> findByOwnerUsernameAndFeaturedTrueOrderByUpdatedAtDesc(String ownerUsername);
+
+    void deleteByOwnerUsername(String ownerUsername);
 }

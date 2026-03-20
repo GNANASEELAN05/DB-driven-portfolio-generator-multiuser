@@ -6,9 +6,7 @@ import com.portfolio.backend.dto.MasterAdminLoginRequest;
 import com.portfolio.backend.model.PreviewPdf;
 import com.portfolio.backend.model.ResumeFile;
 import com.portfolio.backend.model.User;
-import com.portfolio.backend.repository.PreviewPdfRepository;
-import com.portfolio.backend.repository.ResumeFileRepository;
-import com.portfolio.backend.repository.UserRepository;
+import com.portfolio.backend.repository.*;
 import com.portfolio.backend.service.MasterAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,17 +24,21 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/master-admin")
 public class MasterAdminController {
 
-    @Autowired
-    private MasterAdminService masterAdminService;
+    @Autowired private MasterAdminService masterAdminService;
+    @Autowired private UserRepository userRepository;
+    @Autowired private PreviewPdfRepository previewPdfRepository;
+    @Autowired private ResumeFileRepository resumeFileRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PreviewPdfRepository previewPdfRepository;
-
-    @Autowired
-    private ResumeFileRepository resumeFileRepository;
+    // ── Repositories for cascade-delete ──
+    @Autowired private AchievementRepository achievementRepository;
+    @Autowired private EducationRepository educationRepository;
+    @Autowired private ExperienceRepository experienceRepository;
+    @Autowired private ProjectRepository projectRepository;
+    @Autowired private PortfolioProfileRepository portfolioProfileRepository;
+    @Autowired private PortfolioSkillsRepository portfolioSkillsRepository;
+    @Autowired private SocialLinksRepository socialLinksRepository;
+    @Autowired private LanguageExperienceRepository languageExperienceRepository;
+    @Autowired private PaymentRequestRepository paymentRequestRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     // POST /api/master-admin/login
@@ -70,7 +72,6 @@ public class MasterAdminController {
 
     // ─────────────────────────────────────────────────────────────────────────
     // GET /api/master-admin/users
-    // Returns all registered users — safe fields only, no passwords.
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(
@@ -107,9 +108,53 @@ public class MasterAdminController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // DELETE /api/master-admin/users/{username}
+    // Deletes user + ALL their data in dependency order.
+    // ─────────────────────────────────────────────────────────────────────────
+    @DeleteMapping("/users/{username}")
+    @Transactional
+    public ResponseEntity<?> deleteUser(
+            @PathVariable String username,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Missing token"));
+        }
+
+        String u = username.trim().toLowerCase();
+
+        if (!userRepository.existsByUsername(u)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "User not found: " + u));
+        }
+
+        try {
+            // Delete child data first (FK-safe order)
+            achievementRepository.deleteByOwnerUsername(u);
+            educationRepository.deleteByOwnerUsername(u);
+            experienceRepository.deleteByOwnerUsername(u);
+            projectRepository.deleteByOwnerUsername(u);
+            resumeFileRepository.deleteByOwnerUsername(u);
+            portfolioSkillsRepository.deleteByOwnerUsername(u);
+            portfolioProfileRepository.deleteByOwnerUsername(u);
+            socialLinksRepository.deleteByOwnerUsername(u);
+            languageExperienceRepository.deleteByOwnerUsername(u);
+            paymentRequestRepository.deleteByUsername(u);
+            userRepository.deleteByUsername(u);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "User @" + u + " and all data deleted successfully."
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Delete failed: " + e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // GET /api/master-admin/users/{username}/resumes
-    // Returns resume list for a specific user — controller token only.
-    // PUBLIC in SecurityConfig so the Bearer token reaches this method check.
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/users/{username}/resumes")
     public ResponseEntity<?> getUserResumes(
@@ -227,7 +272,6 @@ public class MasterAdminController {
 
     // ─────────────────────────────────────────────────────────────────────────
     // GET /api/master-admin/preview-pdfs/{id}/view
-    // PUBLIC — streams PDF bytes inline for iframe use.
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/preview-pdfs/{id}/view")
     public ResponseEntity<byte[]> viewPreviewPdfById(@PathVariable Long id) {
@@ -243,7 +287,6 @@ public class MasterAdminController {
 
     // ─────────────────────────────────────────────────────────────────────────
     // GET /api/master-admin/preview-pdfs/latest/{tier}
-    // PUBLIC — used by VersionPickerModal.
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/preview-pdfs/latest/{tier}")
     public ResponseEntity<?> getLatestPreviewPdf(@PathVariable String tier) {

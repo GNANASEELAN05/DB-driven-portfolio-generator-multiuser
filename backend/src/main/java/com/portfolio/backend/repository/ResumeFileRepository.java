@@ -12,4 +12,6 @@ public interface ResumeFileRepository extends JpaRepository<ResumeFile, Long> {
     List<ResumeFile> findAllByOwnerUsernameOrderByUploadedAtDesc(String ownerUsername);
 
     Optional<ResumeFile> findFirstByOwnerUsernameAndPrimaryResumeTrue(String ownerUsername);
+
+    void deleteByOwnerUsername(String ownerUsername);
 }
