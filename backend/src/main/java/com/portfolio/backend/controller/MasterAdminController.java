@@ -122,29 +122,38 @@ public class MasterAdminController {
                     .body(Map.of("error", "Missing token"));
         }
 
-        String u = username.trim().toLowerCase();
+        // Normalize for lookup only — actual stored username may differ in casing
+        String u = username == null ? "" : username.trim().toLowerCase();
 
-        if (!userRepository.existsByUsername(u)) {
+        // ── Case-insensitive lookup so "Dheena", "dheena", "DHEENA" all resolve ──
+        User existingUser = userRepository.findByUsernameIgnoreCase(u).orElse(null);
+
+        if (existingUser == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "User not found: " + u));
         }
 
+        // Use the ACTUAL stored username for all child-table deletes
+        String storedUsername = existingUser.getUsername();
+
         try {
             // Delete child data first (FK-safe order)
-            achievementRepository.deleteByOwnerUsername(u);
-            educationRepository.deleteByOwnerUsername(u);
-            experienceRepository.deleteByOwnerUsername(u);
-            projectRepository.deleteByOwnerUsername(u);
-            resumeFileRepository.deleteByOwnerUsername(u);
-            portfolioSkillsRepository.deleteByOwnerUsername(u);
-            portfolioProfileRepository.deleteByOwnerUsername(u);
-            socialLinksRepository.deleteByOwnerUsername(u);
-            languageExperienceRepository.deleteByOwnerUsername(u);
-            paymentRequestRepository.deleteByUsername(u);
-            userRepository.deleteByUsername(u);
+            achievementRepository.deleteByOwnerUsername(storedUsername);
+            educationRepository.deleteByOwnerUsername(storedUsername);
+            experienceRepository.deleteByOwnerUsername(storedUsername);
+            projectRepository.deleteByOwnerUsername(storedUsername);
+            resumeFileRepository.deleteByOwnerUsername(storedUsername);
+            portfolioSkillsRepository.deleteByOwnerUsername(storedUsername);
+            portfolioProfileRepository.deleteByOwnerUsername(storedUsername);
+            socialLinksRepository.deleteByOwnerUsername(storedUsername);
+            languageExperienceRepository.deleteByOwnerUsername(storedUsername);
+            paymentRequestRepository.deleteByUsername(storedUsername);
+
+            // Delete user by ID — reliable, no case sensitivity issues
+            userRepository.deleteById(existingUser.getId());
 
             return ResponseEntity.ok(Map.of(
-                    "message", "User @" + u + " and all data deleted successfully."
+                    "message", "User @" + storedUsername + " and all data deleted successfully."
             ));
 
         } catch (Exception e) {

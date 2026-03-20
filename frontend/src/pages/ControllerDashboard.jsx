@@ -1844,6 +1844,163 @@ function RequestsPage({ dark, onDetailChange, onRejectChange }) {
 }
 
 // ════════════════════════════════════════════
+// DELETE CONFIRM MODAL
+// ════════════════════════════════════════════
+function DeleteConfirmModal({ dark, user, onCancel, onConfirm }) {
+  const [confirming, setConfirming] = React.useState(false);
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    await onConfirm();
+    setConfirming(false);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 700,
+        background: "rgba(5,7,20,0.88)", backdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24, animation: "cd-fade-in 0.18s ease",
+      }}
+      onClick={(e) => e.target === e.currentTarget && !confirming && onCancel()}
+    >
+      <div style={{
+        width: "100%", maxWidth: 420,
+        background: dark ? "#0d0f28" : "#ffffff",
+        border: "1px solid rgba(244,63,94,0.35)",
+        borderRadius: 20, overflow: "hidden",
+        animation: "cd-modal-in 0.26s cubic-bezier(0.22,1,0.36,1)",
+        boxShadow: "0 28px 70px rgba(0,0,0,0.55)",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 18px",
+          borderBottom: "1px solid rgba(244,63,94,0.18)",
+          background: dark ? "rgba(13,15,40,0.95)" : "rgba(255,245,245,0.97)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#f43f5e" }}>{Icon.trash}</span>
+            <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>
+              Delete User
+            </span>
+          </div>
+          {!confirming && (
+            <button
+              onClick={onCancel}
+              style={{
+                width: 28, height: 28, borderRadius: 7,
+                background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.18)",
+                color: dark ? "rgba(253,164,175,0.7)" : "#e11d48",
+                display: "grid", placeItems: "center", cursor: "pointer",
+              }}
+            >{Icon.close}</button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "22px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Warning icon */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: "50%",
+              background: "rgba(244,63,94,0.1)",
+              border: "2px solid rgba(244,63,94,0.25)",
+              display: "grid", placeItems: "center",
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* User info block */}
+          <div style={{
+            padding: "14px 16px", borderRadius: 12,
+            background: dark ? "rgba(244,63,94,0.05)" : "rgba(244,63,94,0.04)",
+            border: "1px solid rgba(244,63,94,0.15)",
+            textAlign: "center",
+          }}>
+            <div style={{
+              fontSize: 18, fontWeight: 900,
+              color: dark ? "#fca5a5" : "#e11d48",
+              marginBottom: 4,
+            }}>
+              @{user?.username}
+            </div>
+            <div style={{
+              fontSize: 12.5, lineHeight: 1.7,
+              color: dark ? "rgba(226,232,240,0.7)" : "#475569",
+            }}>
+              This will permanently delete the user and all their data including portfolio, projects, resumes, achievements, education, experience, skills, and payment history.
+            </div>
+          </div>
+
+          {/* Cannot be undone warning */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "10px 14px", borderRadius: 9,
+            background: "rgba(245,158,11,0.08)",
+            border: "1px solid rgba(245,158,11,0.22)",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>
+              This action cannot be undone.
+            </span>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 10, marginTop: 2 }}>
+            <button
+              onClick={onCancel}
+              disabled={confirming}
+              style={{
+                flex: 1, padding: "10px 0", borderRadius: 10,
+                fontWeight: 700, fontSize: 13,
+                cursor: confirming ? "not-allowed" : "pointer",
+                background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}`,
+                color: dark ? "rgba(226,232,240,0.7)" : "#64748b",
+                opacity: confirming ? 0.5 : 1,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={confirming}
+              style={{
+                flex: 1, padding: "10px 0", borderRadius: 10,
+                fontWeight: 800, fontSize: 13,
+                cursor: confirming ? "not-allowed" : "pointer",
+                background: confirming ? "rgba(244,63,94,0.08)" : "rgba(244,63,94,0.15)",
+                border: `1px solid ${confirming ? "rgba(244,63,94,0.2)" : "rgba(244,63,94,0.45)"}`,
+                color: confirming ? "rgba(244,63,94,0.45)" : "#f43f5e",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                transition: "all 0.15s",
+              }}
+            >
+              {confirming
+                ? <><div className="cd-loader-sm" /> Deleting…</>
+                : <>{Icon.trash} Confirm Delete</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // MAIN DASHBOARD
 // ════════════════════════════════════════════
 export default function ControllerDashboard() {
@@ -1873,6 +2030,7 @@ export default function ControllerDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [requestDetail, setRequestDetail] = useState(null);
   const [rejectDetail, setRejectDetail] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // holds user object to delete
 
   useEffect(() => {
     document.title = "Controller Dashboard";
@@ -1928,16 +2086,22 @@ export default function ControllerDashboard() {
     window.location.replace("/controller/login");
   };
 
-  const handleDeleteUser = async (u, e) => {
+  const handleDeleteUser = (u, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete user @${u.username}?\n\nThis will permanently delete the user and ALL their data (portfolio, projects, resumes, achievements, etc.) from the database. This cannot be undone.`)) return;
+    setDeleteConfirm(u);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteConfirm) return;
     try {
-      const res = await apiFetch(`/master-admin/users/${u.username}`, { method: "DELETE" });
+      const res = await apiFetch(`/master-admin/users/${deleteConfirm.username}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setUsers(prev => prev.filter(x => x.username !== u.username));
-      if (selectedUser?.username === u.username) setSelectedUser(null);
+      setUsers(prev => prev.filter(x => x.username !== deleteConfirm.username));
+      if (selectedUser?.username === deleteConfirm.username) setSelectedUser(null);
+      setDeleteConfirm(null);
     } catch (e) {
-      alert("Delete failed: " + e.message);
+      setDeleteConfirm(null);
+      setErr("Delete failed: " + e.message);
     }
   };
 
@@ -2304,6 +2468,16 @@ const pageLabel = { dashboard: "Overview", users: "Registered Users", pdfs: "Pre
           version={rejectDetail.version}
           onCancel={() => setRejectDetail(null)}
           onConfirm={(reason) => { rejectDetail.onConfirm(reason); setRejectDetail(null); }}
+        />
+      )}
+
+      {/* Delete User Confirm Modal */}
+      {deleteConfirm && (
+        <DeleteConfirmModal
+          dark={dark}
+          user={deleteConfirm}
+          onCancel={() => setDeleteConfirm(null)}
+          onConfirm={confirmDeleteUser}
         />
       )}
     </div>

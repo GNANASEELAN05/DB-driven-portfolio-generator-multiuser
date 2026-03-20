@@ -3191,7 +3191,7 @@ const saveEditSkill = (i) => {
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 950, width: 52 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 950, width: 52 }}>S.No</TableCell>
                           <TableCell sx={{ fontWeight: 950 }}>Plan</TableCell>
                           <TableCell sx={{ fontWeight: 950 }}>Txn ID</TableCell>
                           <TableCell sx={{ fontWeight: 950 }}>Paid Via</TableCell>
