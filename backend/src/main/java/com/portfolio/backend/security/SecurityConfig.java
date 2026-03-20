@@ -50,19 +50,26 @@ public class SecurityConfig {
                 .requestMatchers("/api/master-admin/login").permitAll()
                 .requestMatchers("/api/master-admin/verify").permitAll()
 
-                // ── PUBLIC: latest PDF for VersionPickerModal (no token needed) ──
+                // ── PUBLIC: latest PDF for VersionPickerModal ──────────────
                 .requestMatchers(HttpMethod.GET, "/api/master-admin/preview-pdfs/latest/**").permitAll()
 
-                // ── PUBLIC: PDF view for iframe (no token needed) ──────────
+                // ── PUBLIC: PDF view for iframe ────────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/master-admin/preview-pdfs/*/view").permitAll()
 
-                // ── payment (JWT required, enforced inside controller) ──────
+                // ── payment ────────────────────────────────────────────────
                 .requestMatchers("/api/payment/**").authenticated()
 
                 // ── PUBLIC: portfolio viewer GETs ──────────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/u/*/portfolio/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/u/*/projects/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/u/*/projects").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/u/*/projects/featured").permitAll()
+
+                // ── CONTROLLER: resume list-admin (accepts controller token)
+                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/list-admin").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/*/view").authenticated()
+
+                // ── PUBLIC: resume download ────────────────────────────────
+                .requestMatchers(HttpMethod.GET, "/api/u/*/resume/download").permitAll()
 
                 // ── PUBLIC: profile-image viewer GETs ──────────────────────
                 .requestMatchers(HttpMethod.GET, "/api/profile-image/**").permitAll()
@@ -77,7 +84,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/portfolio/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/portfolio/**").hasRole("ADMIN")
 
-                // ── ADMIN: resume ──────────────────────────────────────────
+                // ── ADMIN: resume (non-admin-list GETs blocked above) ──────
                 .requestMatchers(HttpMethod.POST,   "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/u/*/resume/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/u/*/resume/**").hasRole("ADMIN")

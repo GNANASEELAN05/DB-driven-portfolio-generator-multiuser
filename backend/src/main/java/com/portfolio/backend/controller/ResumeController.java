@@ -37,49 +37,72 @@ public class ResumeController {
         }
     }
 
+    /**
+     * Returns true if the caller is either:
+     *  - the portfolio owner (ROLE_ADMIN with matching username), OR
+     *  - the platform controller (ROLE_CONTROLLER)
+     */
+    private boolean isOwnerOrController(String username) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        boolean isController = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_CONTROLLER"));
+        if (isController) return true;
+        return auth.getName() != null &&
+               auth.getName().trim().toLowerCase().equals(norm(username));
+    }
+
     // =========================================================
-    // ADMIN: Upload PDF resume (per user)
+    // ADMIN: Upload PDF resume (owner only)
     // =========================================================
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upload(@PathVariable String username,
                                     @RequestPart("file") MultipartFile file) {
-
         assertOwner(username);
-
         try {
             service.uploadResume(username, file);
             return ResponseEntity.ok("Resume uploaded successfully");
         } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body("Upload failed: " + e.getMessage());
+            return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
     }
 
     // =========================================================
-    // ADMIN: Get all resumes list (per user)
+    // ADMIN: Get all resumes (owner only)
     // =========================================================
     @GetMapping("/list")
     public ResponseEntity<?> getAll(@PathVariable String username) {
         assertOwner(username);
+        return buildResumeList(username);
+    }
 
+    // =========================================================
+    // CONTROLLER: Get all resumes for any user (controller token)
+    // =========================================================
+    @GetMapping("/list-admin")
+    public ResponseEntity<?> getAllAdmin(@PathVariable String username) {
+        if (!isOwnerOrController(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+        }
+        return buildResumeList(username);
+    }
+
+    // ── shared list builder ──────────────────────────────────
+    private ResponseEntity<?> buildResumeList(String username) {
         try {
             List<ResumeFile> list = service.getAllResumes(username);
-
             List<Map<String, Object>> response = new ArrayList<>();
             int i = 1;
-
             for (ResumeFile r : list) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", r.getId());
-                map.put("fileName", r.getFilename());
-                map.put("serial", i++);
-                map.put("primary", r.isPrimaryResume());
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id",         r.getId());
+                map.put("fileName",   r.getFilename());
+                map.put("serial",     i++);
+                map.put("primary",    r.isPrimaryResume());
                 map.put("uploadedAt", r.getUploadedAt());
                 response.add(map);
             }
-
             return ResponseEntity.ok(response);
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Failed to fetch resumes");
@@ -87,15 +110,16 @@ public class ResumeController {
     }
 
     // =========================================================
-    // ADMIN: Preview resume (per user)
+    // ADMIN/CONTROLLER: Preview resume by id
     // =========================================================
     @GetMapping("/{id}/view")
-    public ResponseEntity<byte[]> viewResume(@PathVariable String username, @PathVariable Long id) {
-        assertOwner(username);
-
+    public ResponseEntity<byte[]> viewResume(@PathVariable String username,
+                                             @PathVariable Long id) {
+        if (!isOwnerOrController(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+        }
         try {
             ResumeFile file = service.getResumeById(username, id);
-
             if (file == null || file.getData() == null)
                 return ResponseEntity.notFound().build();
 
@@ -106,9 +130,7 @@ public class ResumeController {
                             .filename(file.getFilename() != null ? file.getFilename() : "resume.pdf")
                             .build()
             );
-
             return new ResponseEntity<>(file.getData(), headers, HttpStatus.OK);
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
@@ -116,16 +138,14 @@ public class ResumeController {
     }
 
     // =========================================================
-    // VIEWER: Download primary resume (public, per user)
+    // PUBLIC: Download primary resume
     // =========================================================
     @GetMapping("/download")
     public ResponseEntity<byte[]> downloadLatest(@PathVariable String username) {
         try {
             ResumeFile latest = service.getLatestResume(username);
-
-            if (latest == null || latest.getData() == null) {
+            if (latest == null || latest.getData() == null)
                 return ResponseEntity.notFound().build();
-            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
@@ -134,9 +154,7 @@ public class ResumeController {
                             .filename(latest.getFilename() != null ? latest.getFilename() : "resume.pdf")
                             .build()
             );
-
             return new ResponseEntity<>(latest.getData(), headers, HttpStatus.OK);
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
@@ -144,12 +162,12 @@ public class ResumeController {
     }
 
     // =========================================================
-    // ADMIN: Delete resume (per user)
+    // ADMIN: Delete resume (owner only)
     // =========================================================
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable String username, @PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable String username,
+                                    @PathVariable Long id) {
         assertOwner(username);
-
         try {
             service.deleteResume(username, id);
             return ResponseEntity.ok("Deleted");
@@ -160,12 +178,12 @@ public class ResumeController {
     }
 
     // =========================================================
-    // ADMIN: Set primary (per user)
+    // ADMIN: Set primary resume (owner only)
     // =========================================================
     @PutMapping("/{id}/primary")
-    public ResponseEntity<?> setPrimary(@PathVariable String username, @PathVariable Long id) {
+    public ResponseEntity<?> setPrimary(@PathVariable String username,
+                                        @PathVariable Long id) {
         assertOwner(username);
-
         try {
             service.setPrimary(username, id);
             return ResponseEntity.ok("Primary updated");

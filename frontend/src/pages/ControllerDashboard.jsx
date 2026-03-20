@@ -104,6 +104,7 @@ function UserDetailPanel({ user, onClose, dark }) {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [projectModal, setProjectModal] = useState(null); // holds project object
   const username = user?.username;
 
   useEffect(() => {
@@ -113,48 +114,62 @@ function UserDetailPanel({ user, onClose, dark }) {
     Promise.allSettled([
       apiFetch(`/u/${username}/portfolio/profile`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/skills`).then(r => r.json()),
-      apiFetch(`/u/${username}/portfolio/projects/all-admin`).then(r => r.json()),
+      apiFetch(`/u/${username}/projects`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/achievements`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/socials`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/education`).then(r => r.json()),
       apiFetch(`/u/${username}/portfolio/experience`).then(r => r.json()),
-      apiFetch(`/u/${username}/portfolio/language-experience`).then(r => r.json()),
+      apiFetch(`/u/${username}/portfolio/language-experience`).then(r => r.json()).catch(() =>
+      apiFetch(`/u/${username}/portfolio/languages`).then(r => r.json()).catch(() => [])
+      ),
+      apiFetch(`/u/${username}/resume/list-admin`).then(r => r.json()).catch(() => []),
     ]).then(results => {
-      const [profile, skills, projects, achievements, socials, education, experience, languages] = results;
+      const [profile, skills, projects, achievements, socials, education, experience, languages, resumes] = results;
       setData({
-        profile: profile.status === "fulfilled" ? profile.value : null,
-        skills: skills.status === "fulfilled" ? skills.value : null,
-        projects: projects.status === "fulfilled" ? projects.value : null,
+        profile:      profile.status === "fulfilled"      ? profile.value      : null,
+        skills:       skills.status === "fulfilled"       ? skills.value       : null,
+        projects:     projects.status === "fulfilled"     ? projects.value     : null,
         achievements: achievements.status === "fulfilled" ? achievements.value : null,
-        socials: socials.status === "fulfilled" ? socials.value : null,
-        education: education.status === "fulfilled" ? education.value : null,
-        experience: experience.status === "fulfilled" ? experience.value : null,
-        languages: languages.status === "fulfilled" ? languages.value : null,
+        socials:      socials.status === "fulfilled"      ? socials.value      : null,
+        education:    education.status === "fulfilled"    ? education.value    : null,
+        experience:   experience.status === "fulfilled"   ? experience.value   : null,
+        languages:    languages.status === "fulfilled"    ? languages.value    : null,
+        resumes:      resumes.status === "fulfilled"      ? resumes.value      : null,
       });
     }).finally(() => setLoading(false));
   }, [username]);
 
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "projects", label: "Projects" },
-    { id: "skills", label: "Skills" },
-    { id: "education", label: "Education" },
+    { id: "overview",   label: "Overview" },
+    { id: "projects",   label: "Projects" },
+    { id: "skills",     label: "Skills" },
+    { id: "education",  label: "Education" },
     { id: "experience", label: "Experience" },
     { id: "achievements", label: "Achievements" },
-    { id: "socials", label: "Contact" },
+    { id: "socials",    label: "Contact" },
+    { id: "resume",     label: "Resume" },
+    { id: "portfolio",  label: "Portfolio" },
   ];
 
-  const profile = data.profile?.data || {};
-  const projects = Array.isArray(data.projects?.data) ? data.projects.data : [];
-  const achievements = Array.isArray(data.achievements?.data) ? data.achievements.data : [];
-  const education = Array.isArray(data.education?.data) ? data.education.data : [];
-  const experience = Array.isArray(data.experience?.data) ? data.experience.data : [];
-  const languages = Array.isArray(data.languages?.data) ? data.languages.data : [];
-  const socials = data.socials?.data || {};
-  const skillsRaw = data.skills?.data || {};
+  // API may return { data: [...] } OR the array/object directly — handle both
+  const profile      = data.profile?.data      || data.profile      || {};
+  const projects     = Array.isArray(data.projects?.data)     ? data.projects.data
+                     : Array.isArray(data.projects)           ? data.projects     : [];
+  const achievements = Array.isArray(data.achievements?.data) ? data.achievements.data
+                     : Array.isArray(data.achievements)       ? data.achievements : [];
+  const education    = Array.isArray(data.education?.data)    ? data.education.data
+                     : Array.isArray(data.education)          ? data.education    : [];
+  const experience   = Array.isArray(data.experience?.data)   ? data.experience.data
+                     : Array.isArray(data.experience)         ? data.experience   : [];
+  const languages    = Array.isArray(data.languages?.data)    ? data.languages.data
+                     : Array.isArray(data.languages)          ? data.languages    : [];
+  const socials      = data.socials?.data      || data.socials      || {};
+  const skillsRaw    = data.skills?.data       || data.skills       || {};
   const allSkills = ["frontend", "backend", "database", "tools"].flatMap(cat =>
     (skillsRaw[cat] || "").split(",").filter(Boolean).map(s => ({ cat, name: s.trim() }))
   );
+  const resumeList = Array.isArray(data.resumes?.data) ? data.resumes.data
+                   : Array.isArray(data.resumes)       ? data.resumes : [];
 
   return (
     <div className={`cd-panel-overlay${dark ? "" : " cd-light"}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -171,8 +186,8 @@ function UserDetailPanel({ user, onClose, dark }) {
             </div>
             <div className="cd-panel-badges">
               <span className="cd-badge cd-badge-user">User</span>
+              {user?.hasPremium1 && <span className="cd-badge cd-badge-p1">{Icon.star} Premium 1</span>}
               {user?.hasPremium2 && <span className="cd-badge cd-badge-p2">{Icon.premium} Premium 2</span>}
-              {user?.hasPremium1 && !user?.hasPremium2 && <span className="cd-badge cd-badge-p1">{Icon.star} Premium 1</span>}
               <span className="cd-badge cd-badge-joined">Joined {formatDate(user?.createdAt)}</span>
             </div>
           </div>
@@ -218,8 +233,12 @@ function UserDetailPanel({ user, onClose, dark }) {
                     <div className="cd-info-title">Portfolio Links</div>
                     <div className="cd-link-row">
                       <a href={`/${username}`} target="_blank" rel="noopener noreferrer" className="cd-link-btn">{Icon.eye} Free</a>
-                      <a href={`/${username}/premium1`} target="_blank" rel="noopener noreferrer" className="cd-link-btn cd-link-p1">{Icon.premium} Premium 1</a>
-                      <a href={`/${username}/adminpanel`} target="_blank" rel="noopener noreferrer" className="cd-link-btn cd-link-admin">{Icon.shield} Admin</a>
+                      {user?.hasPremium1 && (
+                        <a href={`/${username}/premium1`} target="_blank" rel="noopener noreferrer" className="cd-link-btn cd-link-p1">{Icon.premium} Premium 1</a>
+                      )}
+                      {user?.hasPremium2 && (
+                        <a href={`/${username}/premium2`} target="_blank" rel="noopener noreferrer" className="cd-link-btn cd-link-p2">{Icon.premium} Premium 2</a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -228,19 +247,158 @@ function UserDetailPanel({ user, onClose, dark }) {
                 <div className="cd-panel-section">
                   {projects.length === 0 ? <div className="cd-empty">No projects added yet.</div>
                     : projects.map((p, i) => (
-                      <div className="cd-item-card" key={p.id || i}>
-                        <div className="cd-item-row">
-                          <span className="cd-item-title">{p.title}</span>
+                      <div className="cd-item-card" key={p.id || i} style={{ cursor: "default" }}>
+                        <div className="cd-item-row" style={{ alignItems: "center" }}>
+                          <span className="cd-item-serial">{i + 1}.</span>
+                          <span className="cd-item-title" style={{ flex: 1 }}>{p.title}</span>
                           {p.featured && <span className="cd-badge cd-badge-featured">{Icon.star} Featured</span>}
+                          <button
+                            className="cd-pdf-action-btn"
+                            title="View Details"
+                            style={{ marginLeft: 6, flexShrink: 0 }}
+                            onClick={() => setProjectModal(p)}
+                          >{Icon.eye}</button>
                         </div>
-                        {p.tech && <div className="cd-item-tech">{p.tech.split(",").map((t, i) => <span key={i} className="cd-tech-chip">{t.trim()}</span>)}</div>}
-                        {p.description && <div className="cd-item-desc">{p.description}</div>}
-                        <div className="cd-item-links">
-                          {p.liveUrl && <a href={p.liveUrl} target="_blank" rel="noopener noreferrer" className="cd-ext-link">{Icon.globe} Live</a>}
-                          {p.repoUrl && <a href={p.repoUrl} target="_blank" rel="noopener noreferrer" className="cd-ext-link">{Icon.code} Repo</a>}
-                        </div>
+                        {p.tech && (
+                          <div className="cd-item-tech" style={{ marginTop: 6 }}>
+                            {p.tech.split(",").map((t, ti) => <span key={ti} className="cd-tech-chip">{t.trim()}</span>)}
+                          </div>
+                        )}
                       </div>
                     ))}
+
+                  {/* Project Detail Modal */}
+                  {projectModal && (
+                    <div
+                      style={{
+                        position: "fixed", inset: 0, zIndex: 500,
+                        background: "rgba(5,7,20,0.82)",
+                        backdropFilter: "blur(10px)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        padding: 24,
+                        animation: "cd-fade-in 0.18s ease",
+                      }}
+                      onClick={(e) => e.target === e.currentTarget && setProjectModal(null)}
+                    >
+                      <div style={{
+                        width: "100%", maxWidth: 560,
+                        background: dark ? "#0d0f28" : "#ffffff",
+                        border: "1px solid rgba(99,102,241,0.3)",
+                        borderRadius: 20,
+                        overflow: "hidden",
+                        animation: "cd-modal-in 0.26s cubic-bezier(0.22,1,0.36,1)",
+                        boxShadow: "0 28px 70px rgba(0,0,0,0.45)",
+                      }}>
+                        {/* Modal Header */}
+                        <div style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "14px 18px",
+                          borderBottom: "1px solid rgba(99,102,241,0.18)",
+                          background: dark ? "rgba(13,15,40,0.95)" : "rgba(245,245,255,0.95)",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ color: dark ? "#a5b4fc" : "#6366f1" }}>{Icon.code}</span>
+                            <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>
+                              {projectModal.title}
+                            </span>
+                            {projectModal.featured && (
+                              <span style={{
+                                display: "inline-flex", alignItems: "center", gap: 3,
+                                padding: "2px 7px", borderRadius: 999,
+                                fontSize: 10, fontWeight: 800,
+                                background: "rgba(250,204,21,0.12)",
+                                border: "1px solid rgba(250,204,21,0.3)",
+                                color: "#fbbf24",
+                              }}>{Icon.star} Featured</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setProjectModal(null)}
+                            style={{
+                              width: 28, height: 28, borderRadius: 7,
+                              background: "rgba(99,102,241,0.08)",
+                              border: "1px solid rgba(99,102,241,0.18)",
+                              color: dark ? "rgba(165,180,252,0.7)" : "#6366f1",
+                              display: "grid", placeItems: "center", cursor: "pointer",
+                            }}
+                          >{Icon.close}</button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14, maxHeight: "70vh", overflowY: "auto" }}>
+
+                          {/* Tech Stack */}
+                          {projectModal.tech && (
+                            <div>
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: dark ? "rgba(165,180,252,0.55)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Tech Stack</div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                                {projectModal.tech.split(",").map((t, ti) => (
+                                  <span key={ti} className="cd-tech-chip">{t.trim()}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Status */}
+                          {projectModal.status && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 10.5, fontWeight: 700, color: dark ? "rgba(165,180,252,0.55)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Status</span>
+                              <span style={{
+                                padding: "2px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                                background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)",
+                                color: "#34d399",
+                              }}>{projectModal.status}</span>
+                            </div>
+                          )}
+
+                          {/* Description */}
+                          {projectModal.description && (
+                            <div>
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: dark ? "rgba(165,180,252,0.55)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Description</div>
+                              <div style={{
+                                fontSize: 13, lineHeight: 1.7,
+                                color: dark ? "rgba(226,232,240,0.82)" : "#334155",
+                                background: dark ? "rgba(99,102,241,0.04)" : "rgba(99,102,241,0.03)",
+                                border: "1px solid rgba(99,102,241,0.1)",
+                                borderRadius: 10, padding: "10px 13px",
+                              }}>{projectModal.description}</div>
+                            </div>
+                          )}
+
+                          {/* Links */}
+                          {(projectModal.liveUrl || projectModal.repoUrl) && (
+                            <div>
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: dark ? "rgba(165,180,252,0.55)" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Links</div>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {projectModal.liveUrl && (
+                                  <a href={projectModal.liveUrl} target="_blank" rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-flex", alignItems: "center", gap: 5,
+                                      padding: "6px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                                      background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)",
+                                      color: "#22d3ee", textDecoration: "none",
+                                    }}>{Icon.globe} Live Demo</a>
+                                )}
+                                {projectModal.repoUrl && (
+                                  <a href={projectModal.repoUrl} target="_blank" rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-flex", alignItems: "center", gap: 5,
+                                      padding: "6px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                                      background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)",
+                                      color: "#a5b4fc", textDecoration: "none",
+                                    }}>{Icon.code} Repository</a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {!projectModal.description && !projectModal.tech && !projectModal.liveUrl && !projectModal.repoUrl && (
+                            <div style={{ textAlign: "center", color: "var(--cd-text-muted)", fontSize: 13, padding: "20px 0" }}>No additional details available.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {tab === "skills" && (
@@ -312,25 +470,126 @@ function UserDetailPanel({ user, onClose, dark }) {
                     ))}
                 </div>
               )}
-              {tab === "socials" && (
+{tab === "socials" && (() => {
+                const SKIP_KEYS = ["id", "createdAt", "updatedAt"];
+                // Pretty-print camelCase keys: "ownerUsername" → "Owner Username"
+                const formatKey = (k) =>
+                  k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()).trim();
+                const socialEntries = Object.entries(socials).filter(
+                  ([k, v]) => v && !SKIP_KEYS.includes(k)
+                );
+                return (
+                  <div className="cd-panel-section">
+                    {socialEntries.length === 0
+                      ? <div className="cd-empty">No contact info added yet.</div>
+                      : (
+                        <div className="cd-info-grid">
+                          {socialEntries.map(([key, val]) => (
+                            <div className="cd-info-row" key={key}>
+                              <span className="cd-info-icon">{Icon.link}</span>
+                              <span className="cd-info-key" style={{ width: 110, minWidth: 110 }}>{formatKey(key)}</span>
+                              <span className="cd-info-val">
+                                {typeof val === "string" && val.startsWith("http")
+                                  ? <a href={val} target="_blank" rel="noopener noreferrer" className="cd-ext-link">{val}</a>
+                                  : String(val ?? "")}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                );
+              })()}
+ 
+              {tab === "resume" && (
                 <div className="cd-panel-section">
-                  {Object.entries(socials).filter(([, v]) => v).length === 0
-                    ? <div className="cd-empty">No contact info added yet.</div>
-                    : (
-                      <div className="cd-info-grid">
-                        {Object.entries(socials).filter(([, v]) => v).map(([key, val]) => (
-                          <div className="cd-info-row" key={key}>
-                            <span className="cd-info-icon">{Icon.link}</span>
-                            <span className="cd-info-key">{key}</span>
-                            <span className="cd-info-val">
-                              {val.startsWith("http")
-                                ? <a href={val} target="_blank" rel="noopener noreferrer" className="cd-ext-link">{val}</a>
-                                : val}
-                            </span>
-                          </div>
-                        ))}
+                  {resumeList.length === 0 ? (
+                    <div className="cd-empty">No resumes uploaded yet.</div>
+                  ) : resumeList.map((r, i) => (
+                    <div className="cd-item-card" key={r.id || i} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      <div style={{ color: "var(--cd-text-muted)", flexShrink: 0 }}>{Icon.pdf}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="cd-item-title" style={{ fontSize: 13 }}>{r.fileName || "Resume.pdf"}</div>
+                        <div className="cd-item-sub">{r.uploadedAt ? formatDate(r.uploadedAt) : ""}</div>
                       </div>
-                    )}
+                      {r.primary && (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "2px 8px", borderRadius: 999,
+                          fontSize: 10.5, fontWeight: 800,
+                          background: "rgba(16,185,129,0.12)",
+                          border: "1px solid rgba(16,185,129,0.28)",
+                          color: "#6ee7b7", flexShrink: 0,
+                        }}>
+                          {Icon.check} Active
+                        </span>
+                      )}
+                      {r.id && (
+                        <a
+                          href={`${API_BASE}/u/${username}/resume/view/${r.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cd-pdf-action-btn"
+                          title="Preview"
+                          style={{ textDecoration: "none" }}
+                        >
+                          {Icon.eye}
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+ 
+              {tab === "portfolio" && (
+                <div className="cd-panel-section">
+                  <div className="cd-info-title" style={{ marginBottom: 8 }}>Generated Portfolios</div>
+                  {[
+                    { label: "Free Portfolio",     key: "free",     href: `/${username}`,         color: "#16a34a", always: true },
+                    { label: "Premium 1 Portfolio", key: "premium1", href: `/${username}/premium1`, color: "#7a3f91", show: user?.hasPremium1 },
+                    { label: "Premium 2 Portfolio", key: "premium2", href: `/${username}/premium2`, color: "#7c3aed", show: user?.hasPremium2 },
+                  ].map(tier => {
+                    const isUnlocked = tier.always || tier.show;
+                    return (
+                      <div key={tier.key} style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "12px 14px", borderRadius: 10,
+                        background: isUnlocked ? `${tier.color}10` : "rgba(99,102,241,0.04)",
+                        border: `1px solid ${isUnlocked ? `${tier.color}35` : "rgba(99,102,241,0.1)"}`,
+                        marginBottom: 0,
+                      }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: isUnlocked ? `${tier.color}20` : "rgba(99,102,241,0.1)",
+                          border: `1px solid ${isUnlocked ? `${tier.color}40` : "rgba(99,102,241,0.15)"}`,
+                          display: "grid", placeItems: "center", flexShrink: 0,
+                          color: isUnlocked ? tier.color : "var(--cd-text-muted)",
+                        }}>
+                          {isUnlocked ? Icon.check : Icon.x}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: isUnlocked ? "var(--cd-text)" : "var(--cd-text-muted)" }}>
+                            {tier.label}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--cd-text-muted)", marginTop: 2 }}>
+                            {isUnlocked ? "Unlocked & accessible" : "Not unlocked"}
+                          </div>
+                        </div>
+                        {isUnlocked && (
+                          <a
+                            href={tier.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="cd-pdf-action-btn"
+                            title="Open Portfolio"
+                            style={{ textDecoration: "none" }}
+                          >
+                            {Icon.eye}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -346,24 +605,104 @@ function PdfPreviewModal({ open, title, url, onClose, dark }) {
   if (!open) return null;
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   return (
-    <div className={`cd-modal-overlay${dark ? "" : " cd-light"}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cd-modal">
-        <div className="cd-modal-header">
-          <span className="cd-modal-title">{title}</span>
-          <button className="cd-panel-close" onClick={onClose}>{Icon.close}</button>
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 400,
+        background: "rgba(5,7,20,0.85)",
+        backdropFilter: "blur(10px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "20px",
+        animation: "cd-fade-in 0.2s ease",
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        width: "100%", maxWidth: 860,
+        height: "88vh",
+        background: dark ? "#0d0f28" : "#ffffff",
+        border: "1px solid rgba(99,102,241,0.3)",
+        borderRadius: 20,
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+        animation: "cd-modal-in 0.28s cubic-bezier(0.22,1,0.36,1)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.5)",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 20px",
+          borderBottom: `1px solid ${dark ? "rgba(99,102,241,0.18)" : "rgba(99,102,241,0.12)"}`,
+          background: dark ? "rgba(13,15,40,0.9)" : "rgba(255,255,255,0.95)",
+          flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: dark ? "#a5b4fc" : "#4f46e5" }}>
+            {Icon.pdf}
+            <span style={{ fontWeight: 800, fontSize: 14, color: dark ? "#e2e8f0" : "#1e293b" }}>{title}</span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 30, height: 30, borderRadius: 8,
+              background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)",
+              color: dark ? "rgba(165,180,252,0.7)" : "#6366f1",
+              display: "grid", placeItems: "center", cursor: "pointer",
+            }}
+          >{Icon.close}</button>
         </div>
-        <div className="cd-modal-body">
+ 
+        {/* PDF iframe */}
+        <div style={{ flex: 1, overflow: "hidden", background: "#000" }}>
           {url ? (
             <iframe
               src={isMobile
                 ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
                 : `${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-              style={{ width: "100%", height: "100%", border: "none" }}
+              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
               title={title}
             />
           ) : (
-            <div className="cd-empty" style={{ paddingTop: 60 }}>No PDF available.</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "rgba(148,163,184,0.6)", fontSize: 13 }}>
+              No PDF available.
+            </div>
           )}
+        </div>
+ 
+        {/* Bottom bar */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "12px 20px",
+          borderTop: `1px solid ${dark ? "rgba(99,102,241,0.18)" : "rgba(99,102,241,0.12)"}`,
+          background: dark ? "rgba(13,15,40,0.9)" : "rgba(255,255,255,0.95)",
+          flexShrink: 0, gap: 10,
+        }}>
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "7px 16px", borderRadius: 8,
+                background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.28)",
+                color: dark ? "#a5b4fc" : "#4f46e5",
+                fontSize: 12.5, fontWeight: 700, textDecoration: "none", transition: "all 0.15s",
+              }}
+            >
+              {Icon.eye} Open in new tab
+            </a>
+          )}
+          <button
+            onClick={onClose}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 16px", borderRadius: 8,
+              background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)",
+              color: dark ? "rgba(253,164,175,0.8)" : "#e11d48",
+              fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            {Icon.close} Close
+          </button>
         </div>
       </div>
     </div>
@@ -695,7 +1034,7 @@ export default function ControllerDashboard() {
                   <table className="cd-table">
                     <thead>
                       <tr>
-                        <th>#</th>
+                        <th>S.No</th>
                         <th>User</th>
                         <th>Email</th>
                         <th>Status</th>
